@@ -17,4 +17,14 @@ export const config = {
     // Decided after seeing real drafts (U7); defaults to the same model for now.
     draftModel: "claude-sonnet-4-6",
   },
+
+  // Web-search gathering knobs (U5). Capped for cost, speed, and to keep a run
+  // inside the function time budget (KTD3).
+  gather: {
+    // Gate 2 floor: a run with fewer than this many usable results is routed to
+    // an honest SKIP (insufficient signal).
+    minResults: 2,
+    // Max results to request per individual Tavily query.
+    maxResultsPerQuery: 5,
+  },
 } as const;

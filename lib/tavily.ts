@@ -10,7 +10,8 @@ import type {
 // the web, including LinkedIn via public-snippet `site:linkedin.com` queries.
 
 function getClient() {
-  const apiKey = process.env.TAVILY_API_KEY;
+  // .trim() defends against stray whitespace pasted into the key.
+  const apiKey = process.env.TAVILY_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
       "TAVILY_API_KEY is not set. Add it to .env.local (see .env.example).",
