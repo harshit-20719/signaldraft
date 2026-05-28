@@ -1,3 +1,6 @@
+import { claudeStructured } from "@/lib/anthropic";
+import { config } from "@/lib/config";
+import { DraftSchema, draftPrompt } from "@/lib/prompts/draft";
 import type { Draft, Hook, Identity, SellerContext, Verdict } from "@/lib/types";
 
 export interface DraftArgs {
@@ -7,8 +10,12 @@ export interface DraftArgs {
   seller: SellerContext;
 }
 
-// STUB (U3) — replaced by the real grounded-drafting prompt in U7.
-// SKIP (or no hook) returns null, matching the honest-abstain contract.
+// Stage 5 (U7): write the email, or honestly abstain. For HIGH/MEDIUM, Claude
+// drafts a short, grounded email built only on the one chosen hook (cite real
+// signals, invent nothing, no AI tells). For SKIP — or any case with no chosen
+// hook — we return null: the honest-abstain contract. The recommendation + reason
+// shown to the rep on a SKIP is produced by the score stage, not here, so this
+// stage never has to manufacture a draft it shouldn't.
 export async function draft({
   verdict,
   hook,
@@ -16,8 +23,17 @@ export async function draft({
   seller,
 }: DraftArgs): Promise<Draft | null> {
   if (verdict === "SKIP" || !hook) return null;
-  return {
-    subject: `Quick thought for ${identity.name}`,
-    body: `Hi ${identity.name},\n\nSaw that ${hook.what}. Would love to compare notes.\n\n— ${seller.company}`,
-  };
+
+  const { system, prompt } = draftPrompt({ verdict, hook, identity, seller });
+  const out = await claudeStructured({
+    schema: DraftSchema,
+    system,
+    prompt,
+    // The one place we may swap to a stronger writer if Sonnet's prose isn't
+    // good enough (KTD6); defaults to the same model for now.
+    model: config.claude.draftModel,
+    maxTokens: 700,
+  });
+
+  return { subject: out.subject.trim(), body: out.body.trim() };
 }

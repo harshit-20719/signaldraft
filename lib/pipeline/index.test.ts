@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { runPipeline, type StageFns } from "@/lib/pipeline/index";
 import type {
+  ExtractedSignal,
   Prospect,
   RawResult,
   RunRecord,
@@ -39,7 +40,22 @@ const fakeRaw: RawResult[] = [
   },
 ];
 
-const fakeSignals: Signal[] = [
+// extract's output: judged but not yet scored (carries Claude's relevance read).
+const fakeExtracted: ExtractedSignal[] = [
+  {
+    what: "Spoke about automating the monthly close",
+    when: "2026-05-10",
+    source: "example.com",
+    url: "https://example.com/1",
+    subject: "person",
+    type: "talk",
+    negative: false,
+    relevance: "high",
+  },
+];
+
+// score's output: the same signal with the code-computed scores attached.
+const fakeScored: Signal[] = [
   {
     what: "Spoke about automating the monthly close",
     when: "2026-05-10",
@@ -59,13 +75,13 @@ const fakeStages: StageFns = {
     confidence: "high",
   }),
   gather: async () => fakeRaw,
-  extract: async () => fakeSignals,
-  score: (signals) => ({
+  extract: async () => fakeExtracted,
+  score: () => ({
     verdict: "HIGH",
-    signals,
+    signals: fakeScored,
     hook: {
-      what: signals[0].what,
-      url: signals[0].url,
+      what: fakeScored[0].what,
+      url: fakeScored[0].url,
       why: "highest-scoring signal",
     },
     flags: [],

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   Draft,
+  ExtractedSignal,
   Flag,
   Hook,
   Identity,
@@ -26,8 +27,15 @@ import { draft as draftStage, type DraftArgs } from "@/lib/pipeline/draft";
 export interface StageFns {
   resolve: (p: Prospect, s: SellerContext) => Promise<Identity>;
   gather: (i: Identity, s: SellerContext) => Promise<RawResult[]>;
-  extract: (r: RawResult[], i: Identity, s: SellerContext) => Promise<Signal[]>;
-  score: (sig: Signal[], s: SellerContext) => ScoreResult | Promise<ScoreResult>;
+  extract: (
+    r: RawResult[],
+    i: Identity,
+    s: SellerContext,
+  ) => Promise<ExtractedSignal[]>;
+  score: (
+    sig: ExtractedSignal[],
+    s: SellerContext,
+  ) => ScoreResult | Promise<ScoreResult>;
   draft: (args: DraftArgs) => Promise<Draft | null>;
 }
 

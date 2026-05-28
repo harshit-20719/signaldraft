@@ -98,10 +98,16 @@ export interface SignalScores {
   total: number;
 }
 
-// A raw result that Claude has structured into a usable fact, then code has
-// scored. `negative` is the safety veto: layoffs/lawsuits are kept (so we can
-// show "found but not used") but disqualified from being the hook (R7, AE4).
-export interface Signal {
+// Claude's qualitative read of how relevant a signal is to the seller's pitch.
+// Code maps this to the numeric `relevance` score (KTD5) — Claude judges,
+// code computes.
+export type RelevanceRead = "high" | "medium" | "low";
+
+// The descriptive facts about a signal, shared by the extract output (judged
+// but not yet scored) and the final scored Signal. `negative` is the safety
+// veto input: layoffs/lawsuits are kept (so we can show "found but not used")
+// but disqualified from being the hook (R7, AE4).
+export interface SignalCore {
   what: string; // what happened, in one plain sentence
   when?: string; // date string if known
   source: string; // source name or domain
@@ -109,6 +115,19 @@ export interface Signal {
   subject: SignalSubject;
   type: SignalType;
   negative: boolean;
+}
+
+// Stage 3 output (extract): a raw result Claude has judged worth keeping and
+// structured into a fact, plus its relevance read — but NOT yet scored. Code
+// turns these into Signals in the score stage, so the "Claude judges / code
+// computes the numbers" split (KTD5) is honest in the types.
+export interface ExtractedSignal extends SignalCore {
+  relevance: RelevanceRead;
+}
+
+// Stage 4 output (score): the same fact, now with the three code-computed
+// scores and their weighted composite. This is what ranking and the gates use.
+export interface Signal extends SignalCore {
   scores: SignalScores;
 }
 
