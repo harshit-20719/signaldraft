@@ -26,9 +26,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/* Apply the saved (or system) theme before the page content paints, so
+            there is no flash of the wrong colours. Runs synchronously as the
+            first node in <body>; suppressHydrationWarning on <html> lets the
+            class it adds differ from the server-rendered markup. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

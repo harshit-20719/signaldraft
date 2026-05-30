@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DashboardTable } from "@/components/DashboardTable";
 import { DashboardControls } from "@/components/DashboardControls";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { computeStats, type DashboardStats } from "@/lib/stats";
 import { DEFAULT_QUERY, queryRuns, type RunQuery, type SortKey } from "@/lib/runQuery";
 import type { RunRecord } from "@/lib/types";
@@ -126,12 +127,15 @@ export default function DashboardPage() {
             Every run, shared — and how the judgment is holding up.
           </p>
         </div>
-        <Link
-          href="/"
-          className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
-        >
-          New run →
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link
+            href="/"
+            className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            New run →
+          </Link>
+        </div>
       </header>
 
       {state.status === "loading" && (

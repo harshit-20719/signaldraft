@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
+/* Drive Tailwind's `dark:` variant from a `.dark` class on <html> (toggled by
+   the theme switch + the no-flash init script in layout.tsx) instead of the OS
+   `prefers-color-scheme` setting. This is what makes the theme user-controllable
+   rather than dictated by the operating system. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
+}
+
+/* The dark palette now hangs off the class, not a media query, so the toggle
+   (and the init script) decide it. `color-scheme` keeps native controls —
+   scrollbars, the dashboard's <select> menus — matching the theme. */
+.dark {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -10,13 +26,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

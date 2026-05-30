@@ -6,6 +6,7 @@ import { ProspectForm } from "@/components/ProspectForm";
 import { SellerContextPanel } from "@/components/SellerContextPanel";
 import { LiveRunView } from "@/components/LiveRunView";
 import { OutputCard } from "@/components/OutputCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { defaultSeller } from "@/lib/config";
 import type {
   Prospect,
@@ -196,7 +197,8 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <ThemeToggle />
           <Link
             href="/dashboard"
             className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"

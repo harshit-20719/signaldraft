@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { OutputCard } from "@/components/OutputCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { RunRecord } from "@/lib/types";
 
 // U11 — reopen a saved run by URL. This renders the SAME OutputCard the live run
@@ -63,12 +64,15 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
         >
           ← Dashboard
         </Link>
-        <Link
-          href="/"
-          className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
-        >
-          New run →
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link
+            href="/"
+            className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            New run →
+          </Link>
+        </div>
       </div>
 
       {state.status === "loading" && (
