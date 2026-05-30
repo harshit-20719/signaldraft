@@ -3,8 +3,11 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "if [ -f .env.local ]; then set -a; . ./.env.local; set +a; fi; unset ANTHROPIC_BASE_URL; exec npm run dev"
+      ],
       "port": 3000
     }
   ]

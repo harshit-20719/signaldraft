@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ProspectForm } from "@/components/ProspectForm";
 import { SellerContextPanel } from "@/components/SellerContextPanel";
+import { LiveRunView } from "@/components/LiveRunView";
+import { OutputCard } from "@/components/OutputCard";
 import { defaultSeller } from "@/lib/config";
 import type {
   Prospect,
@@ -11,44 +14,19 @@ import type {
   SellerContext,
   StageEvent,
   StageName,
-  Verdict,
 } from "@/lib/types";
 
-// U9 + the seed of U10's inline stream reader. This is the home screen: enter a
-// prospect, edit the seller context, submit, and watch the run stream in. The
-// run view here is deliberately MINIMAL — a stage-status list plus the final
-// result. Day 5 replaces it with the rich StageCard timeline (U10) and the
-// OutputCard (U11); the streaming/wiring it sits on is the real thing.
+// The home screen: enter a prospect, edit the seller context, submit, and watch
+// the run stream in stage-by-stage. The stream reader is kept INLINE here on
+// purpose — there is exactly one consumer of the stream (this page), so a
+// separate hook abstraction would add indirection without paying for itself
+// (U10). This component owns the run lifecycle; LiveRunView renders the timeline
+// it produces, and the OutputCard (U11) renders the final result.
 
-const STAGES: StageName[] = ["resolve", "gather", "extract", "score", "draft"];
-const STAGE_LABELS: Record<StageName, string> = {
-  resolve: "Resolve identity",
-  gather: "Gather signals",
-  extract: "Extract & filter",
-  score: "Score & verdict",
-  draft: "Draft / abstain",
-};
-
-const VERDICT_STYLE: Record<Verdict, string> = {
-  HIGH: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  SKIP: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-};
-
-function statusGlyph(status: StageEvent["status"] | "pending"): string {
-  switch (status) {
-    case "done":
-      return "✓";
-    case "skipped":
-      return "–";
-    case "error":
-      return "✗";
-    case "running":
-      return "●";
-    default:
-      return "○";
-  }
-}
+// If no stream activity arrives for this long, treat the run as stalled. The
+// server caps a run at 60s (maxDuration), so 90s of *silence* is comfortably
+// abnormal — we abort, mark the in-flight stage failed, and offer a retry.
+const RUN_INACTIVITY_MS = 90_000;
 
 export default function Home() {
   const [prospect, setProspect] = useState<Prospect>({ name: "", company: "" });
@@ -62,9 +40,46 @@ export default function Home() {
   const [events, setEvents] = useState<Partial<Record<StageName, StageEvent>>>({});
   const [record, setRecord] = useState<RunRecord | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Which stage to paint as failed when the run errors/stalls (the one that was
+  // mid-flight). Null if the failure happened between stages.
+  const [failedStage, setFailedStage] = useState<StageName | null>(null);
 
-  // Guards against a second submit racing in while one run is active.
+  // Imperative run state that must not trigger re-renders or go stale in
+  // closures: a re-entrancy guard, the current fetch's abort handle, the
+  // inactivity timer, and the stage currently running (read by the timer).
   const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runningStageRef = useRef<StageName | null>(null);
+
+  const clearRunTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // (Re)start the inactivity clock. Called when the run starts and again on every
+  // chunk that arrives, so a long-but-progressing run is never killed — only a
+  // genuinely silent one.
+  const armInactivityTimer = () => {
+    clearRunTimer();
+    timeoutRef.current = setTimeout(() => {
+      abortRef.current?.abort();
+      setFailedStage(runningStageRef.current);
+      setErrorMsg(
+        "No response from the server for 90 seconds — the run may have stalled. You can retry.",
+      );
+    }, RUN_INACTIVITY_MS);
+  };
+
+  // Clean up any pending timer / in-flight request if the page unmounts mid-run.
+  useEffect(() => {
+    return () => {
+      clearRunTimer();
+      abortRef.current?.abort();
+    };
+  }, []);
 
   async function startRun() {
     if (inFlight.current) return;
@@ -73,21 +88,30 @@ export default function Home() {
     setEvents({});
     setRecord(null);
     setErrorMsg(null);
-    setSellerCollapsed(true); // give the run view room (R: auto-collapse on submit)
+    setFailedStage(null);
+    setSellerCollapsed(true); // give the run view room (auto-collapse on submit)
+    runningStageRef.current = null;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let sawTerminal = false; // a final `record` or `error` message arrived
 
     try {
+      armInactivityTimer();
       const res = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prospect, seller }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
         const msg = await res
           .json()
           .then((d) => d.error as string)
-          .catch(() => "The run could not be started.");
+          .catch(() => null);
         setErrorMsg(msg ?? "The run could not be started.");
+        sawTerminal = true;
         return;
       }
 
@@ -97,34 +121,73 @@ export default function Home() {
       const decoder = new TextDecoder();
       let buffer = "";
 
+      // Dispatch one complete NDJSON line. Reassigns the surrounding
+      // `sawTerminal` so the post-loop and catch logic know a final record/error
+      // already landed and must not be clobbered.
+      const handleLine = (raw: string) => {
+        const line = raw.trim();
+        if (!line) return;
+        const msg = JSON.parse(line) as RunStreamMessage;
+
+        if (msg.type === "event") {
+          const ev = msg.event;
+          // Track the in-flight stage so a stall can point at the right card.
+          if (ev.status === "running") runningStageRef.current = ev.stage;
+          else if (runningStageRef.current === ev.stage)
+            runningStageRef.current = null;
+          setEvents((prev) => ({ ...prev, [ev.stage]: ev }));
+        } else if (msg.type === "record") {
+          sawTerminal = true;
+          clearRunTimer(); // the run finished — the inactivity timer must not fire
+          setRecord(msg.record);
+        } else if (msg.type === "error") {
+          sawTerminal = true;
+          clearRunTimer();
+          setErrorMsg(msg.message);
+          setFailedStage(runningStageRef.current);
+        }
+      };
+
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
+        // Progress = alive; reset the silence clock — but not once the terminal
+        // message has arrived (we are only draining the close).
+        if (!sawTerminal) armInactivityTimer();
         buffer += decoder.decode(value, { stream: true });
 
         let nl: number;
         while ((nl = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, nl).trim();
+          handleLine(buffer.slice(0, nl));
           buffer = buffer.slice(nl + 1);
-          if (!line) continue;
-          handleMessage(JSON.parse(line) as RunStreamMessage);
         }
       }
-    } catch {
-      setErrorMsg("The connection dropped mid-run. Please try again.");
+      // Flush a final line the server didn't terminate with a newline, so a
+      // terminal record/error in the last chunk is never silently dropped.
+      handleLine(buffer);
+
+      // Stream closed cleanly but with no final record/error: an abnormal end.
+      // Surface it rather than leaving the timeline frozen mid-run.
+      if (!sawTerminal) {
+        setErrorMsg("The run ended unexpectedly before finishing. You can retry.");
+        setFailedStage(runningStageRef.current);
+      }
+    } catch (err) {
+      // Don't clobber a result that already arrived: a timeout aborts the fetch
+      // (AbortError — message already set), and a late parse/IO error after a
+      // terminal message must not overwrite the real record/error.
+      if (
+        !sawTerminal &&
+        !(err instanceof DOMException && err.name === "AbortError")
+      ) {
+        setErrorMsg("The connection dropped mid-run. You can retry.");
+        setFailedStage(runningStageRef.current);
+      }
     } finally {
+      clearRunTimer();
+      abortRef.current = null;
       setRunning(false);
       inFlight.current = false;
-    }
-  }
-
-  function handleMessage(msg: RunStreamMessage) {
-    if (msg.type === "event") {
-      setEvents((prev) => ({ ...prev, [msg.event.stage]: msg.event }));
-    } else if (msg.type === "record") {
-      setRecord(msg.record);
-    } else if (msg.type === "error") {
-      setErrorMsg(msg.message);
     }
   }
 
@@ -133,9 +196,17 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <span className="w-fit rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-          v1 · in progress
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="w-fit rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            v1 · in progress
+          </span>
+          <Link
+            href="/dashboard"
+            className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Dashboard →
+          </Link>
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           SignalDraft
         </h1>
@@ -163,91 +234,19 @@ export default function Home() {
       </div>
 
       {showRunPanel && (
-        <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Run
-          </h2>
-
-          {/* Minimal stage timeline — replaced by StageCards in U10. */}
-          <ol className="flex flex-col gap-2">
-            {STAGES.map((stage) => {
-              const ev = events[stage];
-              const status = ev?.status ?? "pending";
-              return (
-                <li key={stage} className="flex items-start gap-3 text-sm">
-                  <span
-                    className={`mt-0.5 w-4 text-center ${
-                      status === "running"
-                        ? "animate-pulse text-zinc-900 dark:text-zinc-100"
-                        : status === "done"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : status === "error"
-                            ? "text-rose-600 dark:text-rose-400"
-                            : "text-zinc-400 dark:text-zinc-600"
-                    }`}
-                  >
-                    {statusGlyph(status)}
-                  </span>
-                  <span className="flex flex-col">
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                      {STAGE_LABELS[stage]}
-                    </span>
-                    {ev?.summary && (
-                      <span className="text-zinc-500 dark:text-zinc-400">
-                        {ev.summary}
-                      </span>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {errorMsg && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-              {errorMsg}
-            </p>
-          )}
-
-          {/* Minimal result — replaced by the OutputCard in U11. */}
-          {record && (
-            <div className="flex flex-col gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${VERDICT_STYLE[record.verdict]}`}
-                >
-                  {record.verdict}
-                </span>
-                {record.hook && (
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {record.hook.why}
-                  </span>
-                )}
-              </div>
-
-              {record.draft ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                    {record.draft.subject}
-                  </p>
-                  <pre className="whitespace-pre-wrap rounded-lg bg-zinc-50 p-3 font-sans text-sm leading-6 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                    {record.draft.body}
-                  </pre>
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {record.recommendation ?? "No draft produced."}
-                </p>
-              )}
-
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                Saved to the dashboard · {record.signals.length} signal(s)
-                considered · {record.timings.durationMs}ms
-              </p>
-            </div>
-          )}
-        </section>
+        <LiveRunView
+          events={events}
+          failedStage={failedStage}
+          errorMsg={errorMsg}
+          running={running}
+          record={record}
+          onRetry={startRun}
+        />
       )}
+
+      {/* The result surface (U11) — the same card the reopen page uses. It
+          re-seeds its editable draft when a fresh run arrives (self-contained). */}
+      {record && <OutputCard record={record} />}
     </main>
   );
 }
