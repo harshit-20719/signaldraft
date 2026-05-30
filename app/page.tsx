@@ -196,10 +196,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="w-fit rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            v1 · in progress
-          </span>
+        <div className="flex items-center justify-end">
           <Link
             href="/dashboard"
             className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
