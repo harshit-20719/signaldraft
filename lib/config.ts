@@ -27,6 +27,13 @@ export const config = {
     enabled: true,
   },
 
+  // CSV batch input (R3). The browser runs the uploaded prospects one at a time
+  // through the normal run route, so each lands in the dashboard. Capped to stay
+  // within the per-IP rate limit (ratelimit.maxPerWindow) on the public app.
+  batch: {
+    maxRows: 5,
+  },
+
   // Web-search gathering knobs (U5). Capped for cost, speed, and to keep a run
   // inside the function time budget (KTD3).
   gather: {

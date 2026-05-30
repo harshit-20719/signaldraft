@@ -199,12 +199,20 @@ export default function Home() {
       <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <ThemeToggle />
-          <Link
-            href="/dashboard"
-            className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
-          >
-            Dashboard →
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/batch"
+              className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
+              Batch
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
+              Dashboard →
+            </Link>
+          </div>
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           SignalDraft
