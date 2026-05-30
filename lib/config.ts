@@ -1,3 +1,5 @@
+import type { SellerContext } from "@/lib/types";
+
 // Central knobs for SignalDraft, kept in one place so they are easy to find and
 // tune. This object grows over the build:
 //   U2 (now): Claude model ids.
@@ -69,4 +71,41 @@ export const config = {
       mediumTotalMin: 0.45, // below this, the top signal is too weak -> SKIP
     },
   },
+
+  // Run-history store knobs (U8). The store is the shared "filing cabinet" of
+  // past runs (KTD4): a Redis list of run ids, newest-first, plus each full
+  // record stored by id. Records carry a TTL so public personal data isn't kept
+  // forever (KTD10).
+  store: {
+    listKey: "signaldraft:runs", // the Redis list holding run ids, newest-first
+    recordPrefix: "signaldraft:run:", // each record stored at recordPrefix + id
+    listCap: 50, // dashboard shows at most this many recent runs
+    ttlDays: 30, // run records expire after this many days
+  },
+
+  // Public-demo rate limit (U8, KTD10). A per-IP cap on POST /api/run so an
+  // automated loop can't drain the API credits. This is in-app *soft* defense;
+  // the hard ceiling is the spend cap set in the Anthropic/Tavily dashboards.
+  ratelimit: {
+    keyPrefix: "signaldraft:rl:", // per-IP counter key
+    maxPerWindow: 5, // allowed runs per IP per window
+    windowSeconds: 3600, // the window length (1 hour)
+  },
 } as const;
+
+// Seller-context defaults (U9, KTD8): who the rep is selling, pre-filled in the
+// form and passed into the pipeline so relevance scoring stays grounded. This is
+// the finance-ops pitch from the strategy; the user can edit it in the UI before
+// a run. Exported as a plain (mutable, typed) object so the form can copy it into
+// editable state without readonly friction.
+export const defaultSeller: SellerContext = {
+  company: "Zamp",
+  product:
+    "finance-ops automation that speeds up the monthly close and cuts manual reconciliation work",
+  valueProps: [
+    "Faster monthly close",
+    "Fewer manual reconciliations",
+    "Real-time visibility into cash and spend",
+  ],
+  targetBuyer: "Finance leaders — CFO, VP Finance, Controller, Head of AP",
+};

@@ -200,6 +200,15 @@ export interface StageEvent {
   data?: unknown;
 }
 
+// The run API streams newline-delimited JSON, one of these per line (U8). The
+// `type` discriminator lets the live view (U10) tell the three apart without
+// guessing: each stage emits an `event`; the run ends with exactly one `record`
+// (the saved RunRecord, success) or one `error` (the run failed mid-flight).
+export type RunStreamMessage =
+  | { type: "event"; event: StageEvent }
+  | { type: "record"; record: RunRecord }
+  | { type: "error"; message: string };
+
 // Everything about one completed run — saved to the dashboard and re-rendered
 // when a saved run is reopened. Carries enough to compute all four metrics (R15).
 export interface RunRecord {
