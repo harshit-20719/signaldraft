@@ -155,6 +155,19 @@ export interface Draft {
   body: string;
 }
 
+// Stage 6 (self-check, R11): Claude reviews its own draft against grounding,
+// specificity, and the no-AI-tells rules, then passes it or returns a revised
+// version. `revised` + `note` are what the UI surfaces (a stage summary + a card
+// note); the stage also returns the final `draft` for the orchestrator to save.
+export interface SelfCheckOutcome {
+  revised: boolean;
+  note: string;
+}
+
+export interface SelfCheckResult extends SelfCheckOutcome {
+  draft: Draft;
+}
+
 // Surfaced on the output card so the judgment is visible (R12). Each flag is a
 // machine-readable type plus a human-readable message.
 export type FlagType =
@@ -184,7 +197,13 @@ export interface ScoreResult {
 // Live events + the saved run record
 // ---------------------------------------------------------------------------
 
-export type StageName = "resolve" | "gather" | "extract" | "score" | "draft";
+export type StageName =
+  | "resolve"
+  | "gather"
+  | "extract"
+  | "score"
+  | "draft"
+  | "selfcheck";
 
 // running = stage started; done = finished with data; skipped = a gate routed
 // past it; error = it failed.
@@ -222,6 +241,7 @@ export interface RunRecord {
   signals: Signal[]; // ranked best-first
   draft: Draft | null; // null on SKIP
   recommendation?: string; // SKIP advice + reason (R10)
+  selfCheck?: SelfCheckOutcome; // Stage 6 result (R11) — present on drafted runs
   flags: Flag[];
   timings: {
     startedAt: number; // ms since epoch

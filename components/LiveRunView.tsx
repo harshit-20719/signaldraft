@@ -23,7 +23,14 @@ import { StageCard, type CardStatus, type GateBadge } from "@/components/StageCa
 // downstream stages were skipped for insufficient signal; Gate 3 from the score
 // stage's verdict.
 
-const STAGE_ORDER: StageName[] = ["resolve", "gather", "extract", "score", "draft"];
+const STAGE_ORDER: StageName[] = [
+  "resolve",
+  "gather",
+  "extract",
+  "score",
+  "draft",
+  "selfcheck",
+];
 
 const STAGE_LABELS: Record<StageName, string> = {
   resolve: "Resolve identity",
@@ -31,6 +38,7 @@ const STAGE_LABELS: Record<StageName, string> = {
   extract: "Extract & filter",
   score: "Score & verdict",
   draft: "Draft / abstain",
+  selfcheck: "Self-check draft",
 };
 
 interface LiveRunViewProps {

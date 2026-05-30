@@ -20,6 +20,13 @@ export const config = {
     draftModel: "claude-sonnet-4-6",
   },
 
+  // Stage 6 draft self-check (R11). When on, after drafting Claude reviews and
+  // may revise its own email (one extra call), shown as its own pipeline stage.
+  // On by default; set false to skip the stage entirely.
+  selfCheck: {
+    enabled: true,
+  },
+
   // Web-search gathering knobs (U5). Capped for cost, speed, and to keep a run
   // inside the function time budget (KTD3).
   gather: {

@@ -9,17 +9,21 @@ import type {
   RawResult,
   RunRecord,
   ScoreResult,
+  SelfCheckOutcome,
+  SelfCheckResult,
   SellerContext,
   Signal,
   StageEvent,
   StageName,
   Verdict,
 } from "@/lib/types";
+import { config } from "@/lib/config";
 import { resolve as resolveStage } from "@/lib/pipeline/resolve";
 import { gather as gatherStage, passesGate2 } from "@/lib/pipeline/gather";
 import { extract as extractStage } from "@/lib/pipeline/extract";
 import { score as scoreStage } from "@/lib/pipeline/score";
 import { draft as draftStage, type DraftArgs } from "@/lib/pipeline/draft";
+import { selfCheck as selfCheckStage, type SelfCheckArgs } from "@/lib/pipeline/selfcheck";
 
 // The five workers the orchestrator drives. Defaults are the real stages; tests
 // hand in fakes to rehearse specific situations (e.g. "no signals come back"),
@@ -37,6 +41,7 @@ export interface StageFns {
     s: SellerContext,
   ) => ScoreResult | Promise<ScoreResult>;
   draft: (args: DraftArgs) => Promise<Draft | null>;
+  selfcheck: (args: SelfCheckArgs) => Promise<SelfCheckResult>;
 }
 
 export const defaultStages: StageFns = {
@@ -45,6 +50,7 @@ export const defaultStages: StageFns = {
   extract: extractStage,
   score: scoreStage,
   draft: draftStage,
+  selfcheck: selfCheckStage,
 };
 
 // The orchestrator: walks the stages in a fixed order (resolve -> gather ->
@@ -69,6 +75,7 @@ export async function* runPipeline(
     draft: Draft | null;
     hook?: Hook;
     recommendation?: string;
+    selfCheck?: SelfCheckOutcome;
     identity?: Identity;
   }): RunRecord => {
     const finishedAt = Date.now();
@@ -83,6 +90,7 @@ export async function* runPipeline(
       signals: parts.signals,
       draft: parts.draft,
       recommendation: parts.recommendation,
+      selfCheck: parts.selfCheck,
       flags,
       timings: { startedAt, finishedAt, durationMs: finishedAt - startedAt },
     };
@@ -124,7 +132,7 @@ export async function* runPipeline(
       type: "insufficient_signal",
       message: "Not enough recent public signal to build a credible hook.",
     });
-    for (const skipped of ["extract", "score", "draft"] as StageName[]) {
+    for (const skipped of ["extract", "score", "draft", "selfcheck"] as StageName[]) {
       yield {
         stage: skipped,
         status: "skipped",
@@ -175,6 +183,11 @@ export async function* runPipeline(
       status: "skipped",
       summary: "Skipped — SKIP verdict means no draft (honest abstain)",
     };
+    yield {
+      stage: "selfcheck",
+      status: "skipped",
+      summary: "Skipped — no draft to review",
+    };
     return buildRecord({
       verdict: "SKIP",
       signals: scored.signals,
@@ -200,11 +213,44 @@ export async function* runPipeline(
     data: theDraft,
   };
 
+  // ----- Stage 6: Draft self-check (R11) — the draft critiques and may revise
+  // itself. Only runs when there is a draft to review (never on SKIP). If
+  // disabled via config, the stage shows as skipped so the timeline stays whole.
+  let finalDraft = theDraft;
+  let selfCheckOutcome: SelfCheckOutcome | undefined;
+  if (config.selfCheck.enabled && theDraft && scored.hook) {
+    yield { stage: "selfcheck", status: "running" };
+    const reviewed = await stages.selfcheck({
+      draft: theDraft,
+      hook: scored.hook,
+      identity,
+      seller,
+      verdict: scored.verdict,
+    });
+    finalDraft = reviewed.draft;
+    selfCheckOutcome = { revised: reviewed.revised, note: reviewed.note };
+    yield {
+      stage: "selfcheck",
+      status: "done",
+      summary: reviewed.revised
+        ? "Draft revised after self-review"
+        : "Self-review passed — no changes",
+      data: selfCheckOutcome,
+    };
+  } else {
+    yield {
+      stage: "selfcheck",
+      status: "skipped",
+      summary: "Skipped — no draft to review",
+    };
+  }
+
   return buildRecord({
     verdict: scored.verdict,
     signals: scored.signals,
     hook: scored.hook,
-    draft: theDraft,
+    draft: finalDraft,
+    selfCheck: selfCheckOutcome,
     identity,
   });
 }

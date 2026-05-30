@@ -150,6 +150,17 @@ export function OutputCard({ record }: { record: RunRecord }) {
             </div>
           )}
 
+          {record.selfCheck && (
+            <div className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-900/60">
+              <span className="mt-0.5 inline-flex shrink-0 items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                {record.selfCheck.revised ? "Self-reviewed · revised" : "Self-reviewed"}
+              </span>
+              <span className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                {record.selfCheck.note}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="draft-subject" className={labelClass}>

@@ -90,6 +90,11 @@ const fakeStages: StageFns = {
     verdict === "SKIP" || !hook
       ? null
       : { subject: "Quick thought", body: "..." },
+  selfcheck: async ({ draft }) => ({
+    revised: false,
+    note: "Meets the bar — no changes.",
+    draft,
+  }),
 };
 
 // Drive the async generator to completion, collecting every emitted event and
@@ -128,10 +133,16 @@ describe("runPipeline (orchestrator)", () => {
       "score:done",
       "draft:running",
       "draft:done",
+      "selfcheck:running",
+      "selfcheck:done",
     ]);
 
     expect(record.verdict).toBe("HIGH");
     expect(record.draft).not.toBeNull();
+    expect(record.selfCheck).toEqual({
+      revised: false,
+      note: "Meets the bar — no changes.",
+    });
     expect(record.signals.length).toBeGreaterThan(0);
     expect(record.hook).toBeDefined();
     expect(record.identity?.name).toBe("Jane Finance");
@@ -156,6 +167,7 @@ describe("runPipeline (orchestrator)", () => {
       "extract:skipped",
       "score:skipped",
       "draft:skipped",
+      "selfcheck:skipped",
     ]);
 
     expect(record.verdict).toBe("SKIP");
@@ -195,9 +207,31 @@ describe("runPipeline (orchestrator)", () => {
     );
 
     expect(trail(events)).toContain("draft:skipped");
+    expect(trail(events)).toContain("selfcheck:skipped");
     expect(trail(events)).not.toContain("draft:done");
     expect(record.verdict).toBe("SKIP");
     expect(record.draft).toBeNull();
     expect(record.recommendation).toBe("Use a generic template.");
+  });
+
+  it("self-check revises the draft: the revised text is what gets saved", async () => {
+    const stages: StageFns = {
+      ...fakeStages,
+      selfcheck: async () => ({
+        revised: true,
+        note: "Tightened the opener and removed a tell.",
+        draft: { subject: "Revised subject", body: "Revised body" },
+      }),
+    };
+    const { events, record } = await runToCompletion(
+      runPipeline(prospect, seller, stages),
+    );
+
+    expect(trail(events)).toContain("selfcheck:done");
+    expect(record.draft).toEqual({ subject: "Revised subject", body: "Revised body" });
+    expect(record.selfCheck).toEqual({
+      revised: true,
+      note: "Tightened the opener and removed a tell.",
+    });
   });
 });

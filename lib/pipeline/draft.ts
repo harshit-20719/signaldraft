@@ -16,6 +16,16 @@ export interface DraftArgs {
 // hook — we return null: the honest-abstain contract. The recommendation + reason
 // shown to the rep on a SKIP is produced by the score stage, not here, so this
 // stage never has to manufacture a draft it shouldn't.
+// Em-dashes are the most recognisable AI tell, and both the draft and self-check
+// rules ban them — yet models still slip them in. Enforce the rule in code so the
+// "no AI tells" promise is guaranteed, not merely requested: turn a spaced
+// em-dash into a comma. Pure + exported so the self-check reuses it and it is
+// unit tested. Hyphens and en-dashes are left alone (they can be legitimate —
+// compound words, numeric ranges).
+export function dropEmDashes(text: string): string {
+  return text.replace(/\s*—\s*/g, ", ");
+}
+
 export async function draft({
   verdict,
   hook,
@@ -35,5 +45,8 @@ export async function draft({
     maxTokens: 700,
   });
 
-  return { subject: out.subject.trim(), body: out.body.trim() };
+  return {
+    subject: dropEmDashes(out.subject.trim()),
+    body: dropEmDashes(out.body.trim()),
+  };
 }
