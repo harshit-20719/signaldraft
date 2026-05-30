@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DashboardTable } from "@/components/DashboardTable";
+import { DashboardControls } from "@/components/DashboardControls";
 import { computeStats, type DashboardStats } from "@/lib/stats";
+import { DEFAULT_QUERY, queryRuns, type RunQuery, type SortKey } from "@/lib/runQuery";
 import type { RunRecord } from "@/lib/types";
 
 // U12 — the dashboard: the shared history of every run plus a summary strip of
@@ -78,6 +80,7 @@ function StatsStrip({ stats }: { stats: DashboardStats }) {
 
 export default function DashboardPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [query, setQuery] = useState<RunQuery>(DEFAULT_QUERY);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +104,16 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const hasRuns = state.status === "loaded" && state.runs.length > 0;
+  const runs = state.status === "loaded" ? state.runs : [];
+  const hasRuns = runs.length > 0;
+  const filtered = queryRuns(runs, query);
+
+  const handleSort = (key: SortKey) =>
+    setQuery((q) =>
+      q.sortKey === key
+        ? { ...q, sortDir: q.sortDir === "asc" ? "desc" : "asc" }
+        : { ...q, sortKey: key, sortDir: key === "when" ? "desc" : "asc" },
+    );
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-12">
@@ -154,10 +166,38 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {hasRuns && state.status === "loaded" && (
+      {hasRuns && (
         <>
-          <StatsStrip stats={computeStats(state.runs)} />
-          <DashboardTable runs={state.runs} />
+          <StatsStrip stats={computeStats(runs)} />
+          <DashboardControls
+            query={query}
+            onChange={setQuery}
+            total={runs.length}
+            shown={filtered.length}
+          />
+          {filtered.length > 0 ? (
+            <DashboardTable
+              runs={filtered}
+              sortKey={query.sortKey}
+              sortDir={query.sortDir}
+              onSort={handleSort}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-zinc-300 px-6 py-12 text-center dark:border-zinc-700">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                No runs match these filters.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuery({ ...DEFAULT_QUERY, sortKey: query.sortKey, sortDir: query.sortDir })
+                }
+                className="text-sm font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </>
       )}
     </main>
