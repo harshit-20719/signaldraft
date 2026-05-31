@@ -119,9 +119,52 @@ function (`lib/csv.ts`, 8 tests). Linked from the home header.
 - Dev server (Harshit's own terminal): `npm run dev`. From the harness:
   `set -a && . ./.env.local && set +a && unset ANTHROPIC_BASE_URL && npm run dev`.
 
+## Post-ship engine refinements (R1–R3) — research-driven
+
+Harshit asked five product questions about the scoring and the draft. Three parallel
+web-research agents (all sourced) led to three engine changes he approved; each was
+implemented, tested, and live-verified together.
+
+**Grounding finding:** the composite was `recency 0.30 / specificity 0.40 /
+relevance 0.30`; the top safe signal becomes the hook and the draft references only
+it (confirmed). The signal *type* was captured but UNUSED in ranking — the key gap.
+
+### R1 — seller context → the real Zamp (`6623904`)
+Rewrote `defaultSeller` to Zamp's actual positioning (zamp.ai — Amit Jain's AI
+finance/ops automation: AP/invoice, vendor onboarding, compliance, treasury) with
+sourced value props (chargebacks months→day [AWS case study], vendor onboarding
+weeks→days / ~90% [Zamp], SOC/ISO/SOX), no invented numbers. The previous "monthly
+close / reconciliation" framing is NOT how Zamp publicly positions itself.
+
+### R2 — drafting → Josh Braun's 4T (`6623904`)
+Rewrote the draft + self-check prompts around the 4T framework — Trigger, Think
+(neutral, non-leading question), Third-party proof (from the value props, "without/no"
+framing), Talk (permission yes/no CTA, never a calendar ask) — plus his rules (5:1
+you:I ratio, problem-before-product, ≤4 sentences). Grounding + no-em-dash preserved.
+
+### R3 — scoring → archetype tiers + weights (`df659a4`)
+Added `config.score.archetypeTiers` (funding/leadership 1.25, hiring 1.10,
+product/press/other 1.00, talk 0.85, post 0.80) as a multiplier on the base composite
+(clamped 0..1), and rebalanced weights to `recency 0.25 / specificity 0.35 /
+relevance 0.40`. A funding round now outranks an equal-base podcast clip. The HIGH
+gate STILL requires a person-level signal, so AE1/AE2 semantics hold. `SignalList`
+shows the ×tier so the math stays transparent. 3 new tests (55 offline total).
+
+### Live verification (all three together)
+A run on Amy Hood / Microsoft: the fresh-but-irrelevant Duke commencement talk
+(talk ×0.85, relevance 0.30) correctly ranked *below* a more-relevant internal memo;
+verdict MEDIUM; the draft was a clean 4T email grounded in real Zamp value props; the
+self-check revised it, catching a "leverage" variant and an over-confident Trigger for
+a company-level signal.
+
+### Implication for the demo
+The scoring change shifts verdicts, so the 5 demo prospects must be re-verified against
+the refined engine when locked (U14). Spot-check any specific number a draft cites
+(e.g. a "123% growth" figure) against the actual source on the day.
+
 ## Next: U14 (demo)
 
-The only remaining plan unit. Verify the five acceptance examples on live data
-(HIGH / MEDIUM / SKIP / safety-veto / disambiguation), lock the prospects, build the
-batch example from them, refresh the README and other repo docs for the new
-features, and write a demo script — then record the video.
+The only remaining plan unit. Verify the five acceptance examples on live data **against
+the refined engine** (verdicts may have shifted), lock the prospects, build the batch
+example from them, refresh the README and other repo docs for the buffer features +
+refinements, and write a demo script — then record the video.
