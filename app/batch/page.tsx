@@ -41,75 +41,112 @@ const STAGE_VERB: Record<string, string> = {
   selfcheck: "self-checking",
 };
 
+// If a single row goes silent for this long, treat it as stalled and abort it —
+// so one hung run can't freeze the whole sequential batch. Mirrors the single-run
+// page's safeguard (the server caps a run at 60s, so 90s of silence is abnormal).
+const ROW_INACTIVITY_MS = 90_000;
+
 // Drive one run through POST /api/run and read the stream to its final record.
 // We only surface the current stage (for the progress line) and the final
 // outcome; the full live timeline is the single-run page's job, not the batch's.
+// This never throws: every failure (network drop, stall, bad response) is turned
+// into an "error" RowStatus so the batch loop can record it and move on.
 async function runOne(
   prospect: ProspectRow,
   seller: SellerContext,
   onStage: (stage: string) => void,
 ): Promise<RowStatus> {
-  let res: Response;
+  // Abort the row if it goes silent too long, re-arming on every chunk so a
+  // slow-but-progressing run is never killed — only a genuinely stalled one.
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const arm = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => controller.abort(), ROW_INACTIVITY_MS);
+  };
+  const disarm = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+
   try {
-    res = await fetch("/api/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prospect, seller }),
-    });
-  } catch {
-    return { state: "error", message: "Network error — could not reach the server." };
-  }
-
-  if (res.status === 429) {
-    return { state: "error", message: "Rate limit reached — wait an hour and retry." };
-  }
-  if (!res.ok || !res.body) {
-    const msg = await res
-      .json()
-      .then((d) => d.error as string)
-      .catch(() => null);
-    return { state: "error", message: msg ?? "The run could not be started." };
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: RowStatus = {
-    state: "error",
-    message: "The run ended unexpectedly.",
-  };
-
-  const handle = (raw: string) => {
-    const line = raw.trim();
-    if (!line) return;
-    let msg: RunStreamMessage;
+    arm();
+    let res: Response;
     try {
-      msg = JSON.parse(line) as RunStreamMessage;
+      res = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospect, seller }),
+        signal: controller.signal,
+      });
     } catch {
-      return;
+      return { state: "error", message: "Network error — could not reach the server." };
     }
-    if (msg.type === "event") {
-      if (msg.event.status === "running") onStage(msg.event.stage);
-    } else if (msg.type === "record") {
-      const r = msg.record;
-      result = { state: "done", verdict: r.verdict, drafted: r.draft != null, id: r.id };
-    } else if (msg.type === "error") {
-      result = { state: "error", message: msg.message };
-    }
-  };
 
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buffer.indexOf("\n")) !== -1) {
-      handle(buffer.slice(0, nl));
-      buffer = buffer.slice(nl + 1);
+    if (res.status === 429) {
+      return { state: "error", message: "Rate limit reached — wait an hour and retry." };
     }
+    if (!res.ok || !res.body) {
+      const msg = await res
+        .json()
+        .then((d) => d.error as string)
+        .catch(() => null);
+      return { state: "error", message: msg ?? "The run could not be started." };
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let result: RowStatus = {
+      state: "error",
+      message: "The run ended unexpectedly.",
+    };
+
+    const handle = (raw: string) => {
+      const line = raw.trim();
+      if (!line) return;
+      let msg: RunStreamMessage;
+      try {
+        msg = JSON.parse(line) as RunStreamMessage;
+      } catch {
+        return;
+      }
+      if (msg.type === "event") {
+        if (msg.event.status === "running") onStage(msg.event.stage);
+      } else if (msg.type === "record") {
+        const r = msg.record;
+        result = { state: "done", verdict: r.verdict, drafted: r.draft != null, id: r.id };
+      } else if (msg.type === "error") {
+        result = { state: "error", message: msg.message };
+      }
+    };
+
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      arm(); // progress = alive; reset the silence clock
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        handle(buffer.slice(0, nl));
+        buffer = buffer.slice(nl + 1);
+      }
+    }
+    handle(buffer);
+    return result;
+  } catch (err) {
+    // A dropped or stalled connection (reader.read() throws, or our timeout
+    // aborts) becomes a clean per-row error instead of throwing out of the loop.
+    const aborted = err instanceof DOMException && err.name === "AbortError";
+    return {
+      state: "error",
+      message: aborted
+        ? "Timed out — no response for 90 seconds."
+        : "The connection dropped mid-run.",
+    };
+  } finally {
+    disarm();
   }
-  handle(buffer);
-  return result;
 }
 
 export default function BatchPage() {
@@ -158,20 +195,26 @@ export default function BatchPage() {
 
     const list = items.map((it) => it.prospect);
     const sellerSnapshot = seller;
-    for (let i = 0; i < list.length; i++) {
-      setItems((prev) =>
-        prev.map((it, idx) => (idx === i ? { ...it, status: { state: "running" } } : it)),
-      );
-      const status = await runOne(list[i], sellerSnapshot, (stage) =>
+    try {
+      for (let i = 0; i < list.length; i++) {
         setItems((prev) =>
-          prev.map((it, idx) =>
-            idx === i ? { ...it, status: { state: "running", stage } } : it,
+          prev.map((it, idx) => (idx === i ? { ...it, status: { state: "running" } } : it)),
+        );
+        // runOne never throws — every failure comes back as an error status — so
+        // one bad row is recorded and the batch moves on to the next.
+        const status = await runOne(list[i], sellerSnapshot, (stage) =>
+          setItems((prev) =>
+            prev.map((it, idx) =>
+              idx === i ? { ...it, status: { state: "running", stage } } : it,
+            ),
           ),
-        ),
-      );
-      setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status } : it)));
+        );
+        setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status } : it)));
+      }
+    } finally {
+      // Whatever happens, re-enable the controls — never leave the UI wedged.
+      setRunning(false);
     }
-    setRunning(false);
   }
 
   const anyDone = items.some((it) => it.status.state === "done");
