@@ -108,18 +108,22 @@ export const config = {
 } as const;
 
 // Seller-context defaults (U9, KTD8): who the rep is selling, pre-filled in the
-// form and passed into the pipeline so relevance scoring stays grounded. This is
-// the finance-ops pitch from the strategy; the user can edit it in the UI before
-// a run. Exported as a plain (mutable, typed) object so the form can copy it into
-// editable state without readonly friction.
+// form and passed into the pipeline so relevance scoring (and the draft) stay
+// grounded. Rewritten to match Zamp's REAL public positioning (zamp.ai — Amit
+// Jain's AI finance/ops automation company), with value props drawn from its own
+// published claims and the AWS case study — no invented customer numbers. The
+// user can edit it in the UI before a run. Exported as a plain (mutable, typed)
+// object so the form can copy it into editable state without readonly friction.
 export const defaultSeller: SellerContext = {
   company: "Zamp",
   product:
-    "finance-ops automation that speeds up the monthly close and cuts manual reconciliation work",
+    "an AI 'digital employee' that automates finance and accounting operations end-to-end — invoice and AP processing, vendor onboarding, payment and compliance screening, and real-time treasury visibility — on top of existing ERPs",
   valueProps: [
-    "Faster monthly close",
-    "Fewer manual reconciliations",
-    "Real-time visibility into cash and spend",
+    "End-to-end invoice and AP processing, with the team stepping in only on exceptions",
+    "Vendor onboarding from weeks to days, with roughly 90% less verification effort",
+    "Dispute and chargeback resolution from months down to about a day",
+    "Real-time visibility into cash, balances, and spend across entities",
+    "Bank-grade controls: SOC 1/2 Type II, ISO 27001, and SOX-ready audit trails",
   ],
   targetBuyer: "Finance leaders — CFO, VP Finance, Controller, Head of AP",
 };
