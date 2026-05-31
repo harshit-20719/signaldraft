@@ -220,23 +220,35 @@ export async function* runPipeline(
   let selfCheckOutcome: SelfCheckOutcome | undefined;
   if (config.selfCheck.enabled && theDraft && scored.hook) {
     yield { stage: "selfcheck", status: "running" };
-    const reviewed = await stages.selfcheck({
-      draft: theDraft,
-      hook: scored.hook,
-      identity,
-      seller,
-      verdict: scored.verdict,
-    });
-    finalDraft = reviewed.draft;
-    selfCheckOutcome = { revised: reviewed.revised, note: reviewed.note };
-    yield {
-      stage: "selfcheck",
-      status: "done",
-      summary: reviewed.revised
-        ? "Draft revised after self-review"
-        : "Self-review passed — no changes",
-      data: selfCheckOutcome,
-    };
+    try {
+      const reviewed = await stages.selfcheck({
+        draft: theDraft,
+        hook: scored.hook,
+        identity,
+        seller,
+        verdict: scored.verdict,
+      });
+      finalDraft = reviewed.draft;
+      selfCheckOutcome = { revised: reviewed.revised, note: reviewed.note };
+      yield {
+        stage: "selfcheck",
+        status: "done",
+        summary: reviewed.revised
+          ? "Draft revised after self-review"
+          : "Self-review passed — no changes",
+        data: selfCheckOutcome,
+      };
+    } catch {
+      // Best-effort: a self-check failure must never sink an otherwise-good run.
+      // Keep the draft we already have, mark the stage skipped, and let the run
+      // complete and save normally.
+      finalDraft = theDraft;
+      yield {
+        stage: "selfcheck",
+        status: "skipped",
+        summary: "Skipped — self-check unavailable, original draft kept",
+      };
+    }
   } else {
     yield {
       stage: "selfcheck",

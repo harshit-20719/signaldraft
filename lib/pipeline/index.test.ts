@@ -234,4 +234,26 @@ describe("runPipeline (orchestrator)", () => {
       note: "Tightened the opener and removed a tell.",
     });
   });
+
+  it("self-check failure is non-fatal: the run completes with the ORIGINAL draft", async () => {
+    const stages: StageFns = {
+      ...fakeStages,
+      draft: async () => ({ subject: "Original subject", body: "Original body" }),
+      selfcheck: async () => {
+        throw new Error("Claude refused / timed out on the self-check call");
+      },
+    };
+    const { events, record } = await runToCompletion(
+      runPipeline(prospect, seller, stages),
+    );
+
+    // The self-check stage starts, fails, and is shown as skipped (not a hard
+    // error). The run still finishes and the surviving draft is the original — a
+    // flaky 6th call can never sink a good run or lose the email.
+    expect(trail(events)).toContain("selfcheck:running");
+    expect(trail(events)).toContain("selfcheck:skipped");
+    expect(record.verdict).toBe("HIGH");
+    expect(record.draft).toEqual({ subject: "Original subject", body: "Original body" });
+    expect(record.selfCheck).toBeUndefined();
+  });
 });
