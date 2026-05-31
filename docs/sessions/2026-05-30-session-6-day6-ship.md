@@ -119,11 +119,12 @@ function (`lib/csv.ts`, 8 tests). Linked from the home header.
 - Dev server (Harshit's own terminal): `npm run dev`. From the harness:
   `set -a && . ./.env.local && set +a && unset ANTHROPIC_BASE_URL && npm run dev`.
 
-## Post-ship engine refinements (R1–R3) — research-driven
+## Post-ship engine refinements (R1–R4) — research-driven
 
-Harshit asked five product questions about the scoring and the draft. Three parallel
-web-research agents (all sourced) led to three engine changes he approved; each was
-implemented, tested, and live-verified together.
+Harshit asked five product questions about the scoring and the draft, then a sharp
+follow-up about the search queries. Three parallel web-research agents (all sourced)
+led to four engine changes he approved; each was implemented, tested, and
+live-verified. Full rationale + sources live in `docs/research-and-decisions.md`.
 
 **Grounding finding:** the composite was `recency 0.30 / specificity 0.40 /
 relevance 0.30`; the top safe signal becomes the hook and the draft references only
@@ -150,6 +151,18 @@ relevance 0.40`. A funding round now outranks an equal-base podcast clip. The HI
 gate STILL requires a person-level signal, so AE1/AE2 semantics hold. `SignalList`
 shows the ×tier so the math stays transparent. 3 new tests (55 offline total).
 
+### R4 — gather queries → archetype-weighted (`2eec2d5`)
+A follow-up insight from Harshit: the Tavily queries were organised by source and
+weighted *backwards* versus the tiers — dedicated searches for low-tier podcasts and
+talks (×0.80–0.85) but **none** for the top-tier funding rounds or exec moves
+(×1.25), which only surfaced incidentally via the generic "news" query. Realigned the
+set, keeping the same search count (the cost cap): added dedicated leadership/exec-move
+and funding/M&A queries pulling MORE results, merged the podcast + talk queries into
+one personal-voice query pulling FEWER, and dropped the low-yield company-blog query.
+The archetype is still classified by extract, so this only changes WHAT is found. R3 +
+R4 together close the loop: hunt hardest for the signals that score highest. Verified
+live — a `leadership` signal now surfaces and ranks first for a finance-leader prospect.
+
 ### Live verification (all three together)
 A run on Amy Hood / Microsoft: the fresh-but-irrelevant Duke commencement talk
 (talk ×0.85, relevance 0.30) correctly ranked *below* a more-relevant internal memo;
@@ -158,9 +171,10 @@ self-check revised it, catching a "leverage" variant and an over-confident Trigg
 a company-level signal.
 
 ### Implication for the demo
-The scoring change shifts verdicts, so the 5 demo prospects must be re-verified against
-the refined engine when locked (U14). Spot-check any specific number a draft cites
-(e.g. a "123% growth" figure) against the actual source on the day.
+The scoring and gather changes shift verdicts (and what is found), so the 5 demo
+prospects must be re-verified against the refined engine when locked (U14). Spot-check
+any specific number a draft cites (e.g. a "123% growth" figure) against the actual
+source on the day.
 
 ## Next: U14 (demo)
 
