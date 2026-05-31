@@ -50,12 +50,13 @@ export const config = {
   // tuning surface — change them here, re-run score.test.ts, and the behaviour
   // shifts without touching logic.
   score: {
-    // Composite weights. Each signal's `total` = recency*w.recency +
-    // specificity*w.specificity + relevance*w.relevance. Must sum to 1 so
-    // `total` stays on a 0..1 scale. Specificity is weighted highest because a
-    // signal being about the PERSON (not just their company) is the heart of
-    // real personalisation.
-    weights: { recency: 0.3, specificity: 0.4, relevance: 0.3 },
+    // Composite weights (must sum to 1). A signal's BASE total =
+    // recency*w.recency + specificity*w.specificity + relevance*w.relevance, then
+    // multiplied by its archetype tier (below) and clamped to 0..1. Relevance
+    // leads because, for a finance-specific pitch, fit to what the seller sells is
+    // the primary filter; specificity (person > company) is a close second and
+    // still structurally gates HIGH.
+    weights: { recency: 0.25, specificity: 0.35, relevance: 0.4 },
 
     // Recency score from a signal's age in days. First matching bucket wins;
     // anything older than the last bucket gets `recencyFloor`. A signal with no
@@ -74,6 +75,25 @@ export const config = {
 
     // Relevance score from Claude's qualitative read (KTD5).
     relevanceMap: { high: 1.0, medium: 0.6, low: 0.3 },
+
+    // Per-archetype "signal strength" multiplier applied to the base composite,
+    // then clamped to 0..1. This is the dimension trigger-event research weights
+    // most heavily: a funding round or a new-exec move is a far stronger buying
+    // signal than a podcast clip, even at equal recency/specificity/relevance
+    // (UserGems, Salesmotion, Autobound). 'other' stays neutral (1.0) so an
+    // uncategorised-but-strong signal is never penalised. This changes RANK and
+    // the MEDIUM/SKIP boundary; the HIGH gate still requires a person-level
+    // signal, so AE1 (HIGH) / AE2 (MEDIUM) semantics are preserved.
+    archetypeTiers: {
+      funding: 1.25, // explicit budget event
+      leadership: 1.25, // new/changed exec (esp. the buyer) — highest intent
+      hiring: 1.1, // hiring for finance/AP roles = active spend
+      product: 1.0, // company-level news
+      press: 1.0, // company-level news
+      other: 1.0, // neutral default
+      talk: 0.85, // strong personal hook, low buying intent
+      post: 0.8, // LinkedIn / podcast — personalisation peg only
+    },
 
     // Gate 3 thresholds (the verdict decision):
     //  - HIGH needs a PERSON-level signal that is recent AND scores well overall.

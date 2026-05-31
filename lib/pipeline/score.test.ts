@@ -146,7 +146,7 @@ describe("score — Gate 3 verdicts", () => {
 
   it("edge: a weak, generic, dateless signal is too thin to use -> SKIP", () => {
     const result = score(
-      [sig({ subject: "company", relevance: "low", negative: false })], // total ≈ 0.38
+      [sig({ subject: "company", relevance: "low", negative: false })], // base ≈ 0.37
       seller,
       NOW,
     );
@@ -173,6 +173,43 @@ describe("score — Gate 3 verdicts", () => {
     expect(result.signals[0].url).toBe("https://example.com/newer");
     expect(result.signals[0].scores.total).toBeGreaterThan(result.signals[1].scores.total);
     expect(result.hook?.url).toBe("https://example.com/newer");
+    expect(result.verdict).toBe("HIGH");
+  });
+
+  it("archetype: a funding signal outranks an equal-base post (signal-strength tier)", () => {
+    const common = {
+      subject: "company" as const,
+      relevance: "medium" as const,
+      negative: false,
+      when: "2026-05-20",
+    };
+    const post = sig({ ...common, type: "post", url: "https://example.com/post" });
+    const funding = sig({ ...common, type: "funding", url: "https://example.com/funding" });
+    // Pass the post first to prove ranking is by score, not input order.
+    const result = score([post, funding], seller, NOW);
+    expect(result.signals[0].url).toBe("https://example.com/funding");
+    expect(result.signals[0].scores.total).toBeGreaterThan(result.signals[1].scores.total);
+    expect(result.hook?.url).toBe("https://example.com/funding");
+  });
+
+  it("archetype: an identical person-level base is HIGH as 'leadership' but MEDIUM as 'post'", () => {
+    const base = {
+      subject: "person" as const,
+      relevance: "medium" as const,
+      negative: false,
+      when: "2026-05-20",
+    };
+    expect(score([sig({ ...base, type: "leadership" })], seller, NOW).verdict).toBe("HIGH");
+    expect(score([sig({ ...base, type: "post" })], seller, NOW).verdict).toBe("MEDIUM");
+  });
+
+  it("archetype: a boosted top-tier signal clamps at 1.0, never above", () => {
+    const result = score(
+      [sig({ subject: "person", relevance: "high", negative: false, when: "2026-05-20", type: "leadership" })],
+      seller,
+      NOW,
+    );
+    expect(result.signals[0].scores.total).toBe(1.0); // base 1.0 × 1.25, clamped to 1.0
     expect(result.verdict).toBe("HIGH");
   });
 });

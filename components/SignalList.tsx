@@ -1,4 +1,5 @@
 import type { Signal, Verdict } from "@/lib/types";
+import { config } from "@/lib/config";
 
 // U11 — the ranked signal list. This is the "show its work" surface: every
 // signal the engine considered, best-first, each with its three transparent
@@ -122,6 +123,17 @@ export function SignalList({
                   R {pct(sig.scores.recency)} · S {pct(sig.scores.specificity)} ·
                   Rel {pct(sig.scores.relevance)}
                 </span>
+                {config.score.archetypeTiers[sig.type] !== 1 && (
+                  <span
+                    className={`text-[11px] tabular-nums ${
+                      config.score.archetypeTiers[sig.type] > 1
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    ×{config.score.archetypeTiers[sig.type]} signal type
+                  </span>
+                )}
               </div>
             </div>
           </li>

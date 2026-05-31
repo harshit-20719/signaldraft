@@ -56,8 +56,12 @@ function scoreOne(e: ExtractedSignal, now: number): Signal {
   const specificity = scoreSpecificity(e.subject);
   const relevance = scoreRelevance(e.relevance);
   const w = config.score.weights;
-  const total =
+  const base =
     recency * w.recency + specificity * w.specificity + relevance * w.relevance;
+  // Per-archetype signal-strength multiplier, clamped so a top-tier signal
+  // saturates at 1.0 rather than overflowing the 0..1 scale (KTD5).
+  const tier = config.score.archetypeTiers[e.type];
+  const total = Math.min(1, Math.max(0, base * tier));
 
   return {
     what: e.what,
@@ -87,7 +91,9 @@ function explainHook(top: Signal): string {
   else if (top.scores.recency >= 0.4) parts.push("reasonably recent");
   if (top.scores.relevance >= 1.0) parts.push("directly relevant to the pitch");
   else if (top.scores.relevance >= 0.6) parts.push("relevant to the pitch");
-  return `Strongest safe signal — ${parts.join(", ")}.`;
+  if (config.score.archetypeTiers[top.type] > 1.0)
+    parts.push(`a high-intent signal type (${top.type})`);
+  return `Strongest safe signal: ${parts.join(", ")}.`;
 }
 
 // `now` is injectable so recency (and therefore the whole verdict) is
