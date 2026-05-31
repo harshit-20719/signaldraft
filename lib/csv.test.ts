@@ -45,4 +45,15 @@ describe("parseProspectCsv", () => {
     const csv = " name , company \r\n Amy Hood , Microsoft \r\n";
     expect(parseProspectCsv(csv)).toEqual([{ name: "Amy Hood", company: "Microsoft" }]);
   });
+
+  it("keeps a quoted field with an embedded newline as one row (no row loss)", () => {
+    // A spreadsheet export where one cell spans two lines. The newline is INSIDE
+    // quotes, so it is field content, not a row break: the prospect must not
+    // vanish and the rows after it must not shift up.
+    const csv = 'name,company\n"Amy\nHood",Microsoft\nRuth Porat,Alphabet';
+    expect(parseProspectCsv(csv)).toEqual([
+      { name: "Amy\nHood", company: "Microsoft" },
+      { name: "Ruth Porat", company: "Alphabet" },
+    ]);
+  });
 });

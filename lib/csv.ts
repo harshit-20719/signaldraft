@@ -11,17 +11,22 @@ export interface ProspectRow {
   hint?: string;
 }
 
-// Split one CSV line into fields, respecting double-quoted segments so a comma
-// inside "Smith, John" is not treated as a separator.
-function splitLine(line: string): string[] {
-  const out: string[] = [];
+// Parse the WHOLE CSV text into rows of fields in ONE quote-aware pass, so a
+// quoted field may contain commas AND line breaks ("" is an escaped quote). This
+// is why we do not split on newlines first: a newline INSIDE quotes is field
+// content, not a row break — splitting line-by-line first would tear a multi-line
+// cell (common in spreadsheet exports) in half and silently drop a prospect.
+function splitRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let field = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
     if (inQuotes) {
       if (c === '"') {
-        if (line[i + 1] === '"') {
+        if (text[i + 1] === '"') {
           field += '"'; // "" is an escaped quote
           i++;
         } else {
@@ -33,14 +38,26 @@ function splitLine(line: string): string[] {
     } else if (c === '"') {
       inQuotes = true;
     } else if (c === ",") {
-      out.push(field);
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++; // treat CRLF as one break
+      row.push(field);
+      rows.push(row);
+      row = [];
       field = "";
     } else {
       field += c;
     }
   }
-  out.push(field);
-  return out.map((f) => f.trim());
+  // Flush the trailing field/row (the file may not end with a newline).
+  row.push(field);
+  rows.push(row);
+
+  // Trim every field, then drop fully-blank rows (e.g. from a trailing newline).
+  return rows
+    .map((r) => r.map((f) => f.trim()))
+    .filter((r) => r.some((f) => f.length > 0));
 }
 
 // Accepted header spellings → the canonical field they map to (case-insensitive).
@@ -65,13 +82,10 @@ const HEADER_ALIASES: Record<string, keyof ProspectRow> = {
 // a name column and a company column (under any accepted alias). Rows missing
 // either are dropped. Empty / header-only input returns [].
 export function parseProspectCsv(text: string): ProspectRow[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  if (lines.length < 2) return []; // need a header plus at least one data row
+  const rows = splitRows(text);
+  if (rows.length < 2) return []; // need a header plus at least one data row
 
-  const headers = splitLine(lines[0]).map((h) => h.toLowerCase());
+  const headers = rows[0].map((h) => h.toLowerCase());
   const colFor = (field: keyof ProspectRow): number =>
     headers.findIndex((h) => HEADER_ALIASES[h] === field);
 
@@ -81,9 +95,9 @@ export function parseProspectCsv(text: string): ProspectRow[] {
   const hintCol = colFor("hint");
   if (nameCol === -1 || companyCol === -1) return []; // required columns absent
 
-  const rows: ProspectRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitLine(lines[i]);
+  const out: ProspectRow[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const cells = rows[i];
     const name = cells[nameCol] ?? "";
     const company = cells[companyCol] ?? "";
     if (!name || !company) continue; // skip incomplete rows rather than running them
@@ -93,7 +107,7 @@ export function parseProspectCsv(text: string): ProspectRow[] {
     const hint = hintCol >= 0 ? cells[hintCol] : "";
     if (role) row.role = role;
     if (hint) row.hint = hint;
-    rows.push(row);
+    out.push(row);
   }
-  return rows;
+  return out;
 }
