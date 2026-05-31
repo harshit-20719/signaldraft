@@ -7,21 +7,59 @@ import type { Identity, RawResult, SourceType } from "@/lib/types";
 // that happens in extract/score (U6). Gate 2 (passesGate2) then decides whether
 // we found enough to continue or should honestly SKIP for insufficient signal.
 
-// The fixed set of queries, one per source type (R5). This list IS the cost
-// cap: a small, bounded number of searches keeps a run fast, cheap, and inside
-// the function time budget (KTD3). Results-per-query is separately capped in
-// config.gather.maxResultsPerQuery.
-function buildQueries(identity: Identity): { q: string; sourceType: SourceType }[] {
+// The query set is weighted toward the highest-value signal ARCHETYPES, not just
+// spread across sources (R5 + the archetype tiers in config.score). We actively
+// hunt the events that score highest: a new/changed exec and a funding round
+// (×1.25) each get a dedicated query and MORE results, while low-tier personal
+// content (podcasts/posts/talks, ×0.80-0.85) is consolidated into one query with
+// FEWER results. Same number of searches as before (this list is still the cost
+// cap), just aimed to match where the score weight is. The archetype of each
+// surfaced result is still decided by extract, not by which query found it, so
+// these queries only change WHAT we find, not how it is scored.
+function buildQueries(identity: Identity): {
+  q: string;
+  sourceType: SourceType;
+  maxResults: number;
+}[] {
   const person = `"${identity.name}"`;
   const company = identity.company;
+  const base = config.gather.maxResultsPerQuery;
+  const more = base + 3; // T1 archetypes — cast wider
+  const fewer = Math.max(2, base - 2); // personalisation-only — cast narrower
   return [
-    { q: `${person} ${company} news`, sourceType: "news" },
-    { q: `${person} ${company} announcement OR "press release"`, sourceType: "press" },
-    { q: `${person} podcast OR interview`, sourceType: "podcast" },
-    { q: `${person} keynote OR conference talk OR panel`, sourceType: "talk" },
-    { q: `${company} finance OR accounting jobs hiring`, sourceType: "job" },
-    { q: `${company} blog finance OR operations`, sourceType: "blog" },
-    { q: `site:linkedin.com ${person} ${company}`, sourceType: "linkedin" },
+    // T1 (×1.25) — actively hunted, more results:
+    {
+      q: `${person} ${company} (appointed OR named OR hired OR "joins as" OR promoted OR "new CFO" OR "steps down")`,
+      sourceType: "news",
+      maxResults: more,
+    },
+    {
+      q: `${company} (funding OR raises OR "Series" OR investment OR acquisition OR acquires)`,
+      sourceType: "press",
+      maxResults: more,
+    },
+    // Broad net for the other events (earnings, expansion, product, general news):
+    { q: `${person} ${company} news`, sourceType: "news", maxResults: base + 1 },
+    // T2 (×1.10) — hiring for finance/AP roles signals active spend:
+    {
+      q: `${company} (finance OR accounting OR "accounts payable") jobs hiring`,
+      sourceType: "job",
+      maxResults: base,
+    },
+    // T3 — announcements / launches:
+    {
+      q: `${person} ${company} announcement OR "press release" OR launch`,
+      sourceType: "press",
+      maxResults: base,
+    },
+    // T4/T5 — personal voice (talk / podcast / interview), narrower:
+    {
+      q: `${person} (interview OR podcast OR keynote OR conference OR panel)`,
+      sourceType: "talk",
+      maxResults: fewer,
+    },
+    // LinkedIn public snippets — personal context:
+    { q: `site:linkedin.com ${person} ${company}`, sourceType: "linkedin", maxResults: fewer },
   ];
 }
 
@@ -33,7 +71,7 @@ export async function gather(identity: Identity): Promise<RawResult[]> {
   const settled = await Promise.allSettled(
     queries.map((query) =>
       tavilySearch(query.q, {
-        maxResults: config.gather.maxResultsPerQuery,
+        maxResults: query.maxResults,
         searchDepth: "basic",
       }),
     ),
