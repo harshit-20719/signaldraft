@@ -212,4 +212,19 @@ describe("score — Gate 3 verdicts", () => {
     expect(result.signals[0].scores.total).toBe(1.0); // base 1.0 × 1.25, clamped to 1.0
     expect(result.verdict).toBe("HIGH");
   });
+
+  it("archetype: a strong, recent, person-level 'post'/'talk' CAN reach HIGH (intended)", () => {
+    // Day-7 decision: a low-intent archetype is NOT barred from HIGH. A recent,
+    // person-specific, highly-relevant post or podcast clip is a legitimate strong
+    // hook, so it is allowed through. Pinned so this stays a conscious choice and
+    // does not silently flip if the tiers or weights are retuned.
+    const base = {
+      subject: "person" as const,
+      relevance: "high" as const,
+      negative: false,
+      when: "2026-05-20",
+    };
+    expect(score([sig({ ...base, type: "post" })], seller, NOW).verdict).toBe("HIGH"); // 1.0 × 0.8 = 0.8 ≥ 0.7
+    expect(score([sig({ ...base, type: "talk" })], seller, NOW).verdict).toBe("HIGH"); // 1.0 × 0.85 = 0.85 ≥ 0.7
+  });
 });
