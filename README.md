@@ -47,9 +47,10 @@ anywhere, and UI problems can never block engine work (or vice versa).
 
 ### The pipeline
 
-A run is a fixed five-stage sequence with **code-driven gates** between stages —
+A run is a fixed six-stage sequence with **code-driven gates** between stages —
 not an autonomous agent. The fixed shape is what makes it reliable, explainable,
-and demonstrable.
+and demonstrable. (The sixth stage, self-check, runs only when there is a draft to
+review.)
 
 ```mermaid
 flowchart TB
@@ -66,25 +67,39 @@ flowchart TB
   G3 -->|recent personal| HIGH[5. Draft - HIGH]
   G3 -->|company-level / older| MED[5. Draft - MEDIUM + verify flag]
   G3 -->|nothing usable| SKIP2[SKIP - recommend skip / generic]
+  HIGH --> S6[6. Self-check - critique & revise the draft]
+  MED --> S6
 ```
 
 1. **Resolve** — Claude turns the form input into a single best-guess identity. If
    it's ambiguous (a common name), the run continues anyway with a low-confidence
    flag rather than blocking.
-2. **Gather** — seven targeted web searches fire in parallel through Tavily (news,
-   press, podcasts, talks, job postings, company blog, and public LinkedIn
-   snippets), deduped by URL.
+2. **Gather** — seven targeted web searches fire in parallel through Tavily,
+   deduped by URL. The set is weighted toward the highest-intent signal types: a
+   leadership change and a funding/M&A event each get a dedicated query pulling more
+   results, while lower-intent personal content (interviews, podcasts, talks) is
+   consolidated into fewer. One slow or failing query never sinks the stage —
+   whatever the others return is kept.
 3. **Extract** — Claude reads the raw results and keeps only the real, on-topic,
    right-person signals, dropping noise. It returns kept results *by index*; the
    code rebuilds each source URL from the real search result, so links are never
    hallucinated.
 4. **Score** — pure code computes each signal's recency, specificity
-   (person > company), and relevance into a single 0–1 score. A **safety veto**
-   disqualifies negative news (layoffs, lawsuits) as a hook — it's kept and
-   flagged "found but not used", never built on.
-5. **Draft** — for HIGH/MEDIUM, Claude writes a short, human-sounding email
-   grounded *only* in the chosen signal (no invented facts, no AI tells). For SKIP,
-   no email is written — just a plain recommendation and reason.
+   (person > company), and relevance into a single 0–1 score, then multiplies by a
+   per-archetype "signal strength" weight so a funding round or a new-exec move
+   outranks a podcast clip at otherwise-equal scores. A **safety veto** disqualifies
+   negative news (layoffs, lawsuits) as a hook — it's kept and flagged "found but
+   not used", never built on.
+5. **Draft** — for HIGH/MEDIUM, Claude writes a short, human-sounding email built on
+   Josh Braun's 4T structure (Trigger, Think, Third-party proof, Talk), grounded
+   *only* in the chosen signal (no invented facts, no AI tells). For SKIP, no email
+   is written — just a plain recommendation and reason.
+6. **Self-check** — Claude reviews its own draft against the same bar (grounding, the
+   4T structure, no AI tells) and either passes it or returns a tightened version;
+   the revised draft is what gets saved. On by default and shown as its own stage. A
+   failed self-check never sinks the run — the original draft is kept. The
+   no-em-dash rule (the most common AI tell) is enforced in *code* on both the draft
+   and this review, so it's guaranteed rather than merely requested.
 
 ### Why the verdict is decided by code, not by Claude
 
@@ -110,6 +125,12 @@ These are the choices that shaped the build (the full rationale lives in the
 - **Structured outputs + Zod for all Claude JSON** — Claude is *constrained* to
   return data matching a schema, so there's no fragile hand-parsing or retrying on
   malformed JSON.
+- **The draft checks its own work, and the format rules are enforced in code** — a
+  sixth self-check stage re-runs the draft against the grounding and no-AI-tells bar
+  and revises it before you see it; the no-em-dash rule is applied in code, not just
+  requested in the prompt, so a quality rule can't silently slip through. The
+  self-check is best-effort: if it fails, the original draft is kept and the run
+  still completes.
 - **Live streaming run view** — each stage's real data streams to the browser as
   newline-delimited JSON, so you watch the judgment unfold instead of staring at a
   spinner. The UI *derives* the gate decisions from the stage events it already
@@ -145,7 +166,7 @@ cp .env.example .env.local
 npm run dev          # http://localhost:3000
 
 # 4. Run the tests
-npm test             # 26 offline tests (no network, no API spend)
+npm test             # 61 offline tests (no network, no API spend)
 ```
 
 **Live tests** (real Claude + Tavily calls, skipped by default so the normal suite
@@ -180,30 +201,34 @@ env vars are present, and falls back to in-memory otherwise.
 
 ```text
 lib/                  The judgment engine (framework-agnostic TypeScript)
-  pipeline/           The five stages + the orchestrator that streams events
+  pipeline/           The six stages + the orchestrator that streams events
     index.ts          Orchestrator: runs stages in order, yields a StageEvent each
     resolve.ts        Stage 1 + Gate 1 (identity)
-    gather.ts         Stage 2 + Gate 2 (parallel web search)
+    gather.ts         Stage 2 + Gate 2 (archetype-weighted parallel web search)
     extract.ts        Stage 3 (Claude filters raw results to real signals)
-    score.ts          Stage 4 + Gate 3 (code scoring, safety veto, verdict)
-    draft.ts          Stage 5 (grounded email, or null for SKIP)
-  prompts/            The Claude prompts for resolve / extract / draft
-  config.ts           Every tunable knob: model ids, weights, gate thresholds
+    score.ts          Stage 4 + Gate 3 (code scoring, archetype tiers, safety veto)
+    draft.ts          Stage 5 (grounded 4T email, or null for SKIP)
+    selfcheck.ts      Stage 6 (the draft critiques and may revise itself)
+  prompts/            The Claude prompts for resolve / extract / draft / self-check
+  config.ts           Every tunable knob: model ids, weights, archetype tiers, gates
   types.ts            The shared vocabulary (Prospect, Signal, Verdict, RunRecord)
   anthropic.ts        Claude client wrapper (text + structured output)
   tavily.ts           Tavily search wrapper
   kv.ts / store.ts    The run store (Upstash Redis, with in-memory dev fallback)
   ratelimit.ts        Per-IP rate limit
   stats.ts            Dashboard summary metrics (a tested pure function)
+  runQuery.ts         Dashboard filter + sort (a tested pure function)
+  csv.ts              CSV parser for batch input (a tested pure function)
 
 app/                  The Next.js web layer
   page.tsx            Home: prospect form + live streaming run view
-  dashboard/page.tsx  Run history + summary stats
+  dashboard/page.tsx  Run history + summary stats + filter/sort
+  batch/page.tsx      CSV batch: run up to five prospects through the engine
   runs/[id]/page.tsx  Reopen any saved run by URL
   api/run/route.ts    POST: runs the pipeline, streams stage events, saves the run
   api/runs/...        GET: history list + one run by id
 
-components/           The React UI (form, live timeline, output card, dashboard)
+components/           The React UI (form, live timeline, output card, dashboard, theme)
 docs/                 The thinking behind the build (see below)
 ```
 
