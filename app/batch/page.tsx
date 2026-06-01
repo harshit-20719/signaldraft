@@ -17,9 +17,18 @@ import type { RunStreamMessage, SellerContext, Verdict } from "@/lib/types";
 
 const MAX = config.batch.maxRows;
 
+// The five demo prospects (U14), one per verdict case, so "Use an example" loads
+// a list that exercises the full range in a single batch: a clean HIGH, a
+// company-level MEDIUM, an honest SKIP (an obscure prospect with no public
+// signal), the safety veto (negative news found but kept out of the hook), and a
+// low-confidence disambiguation flag. "Arq, Inc." carries a comma, so the field
+// is quoted — a live test of the CSV quoted-comma handling.
 const EXAMPLE_CSV = `name,company,role
-Amy Hood,Microsoft,CFO
-Ruth Porat,Alphabet,President and CIO`;
+Shimon Steinmetz,"Arq, Inc.",Chief Financial Officer
+Carey Hendrickson,PACS Group,Chief Financial Officer
+Hilary Maxson,Oracle,Chief Financial Officer
+Sid Thacker,Peloton Interactive,Chief Financial Officer
+Devon Ashcroft,Larkfield Instruments,Head of Finance`;
 
 type RowStatus =
   | { state: "pending" }
