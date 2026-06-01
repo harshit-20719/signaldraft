@@ -1,5 +1,5 @@
 ---
-title: "SignalDraft — demo script"
+title: "SignalDraft — 5-minute demo script"
 type: demo-guide
 date: 2026-06-01
 audience: Zamp case-study reviewers
@@ -7,234 +7,203 @@ app: https://signaldraft.vercel.app
 repo: https://github.com/harshit-20719/signaldraft
 ---
 
-# SignalDraft — demo script
+# SignalDraft — 5-minute demo script
 
-A narration guide for a screen recording of roughly **5–7 minutes**. It is written
-to be read aloud (or paraphrased) while you click. Everything in **SAY** is the
-spoken line; everything in *(do)* is the action.
+A narration guide for a **single-take screen recording, 5 minutes MAX** (no editing,
+no slides — just the screen and the process running). Written to be read aloud or
+paraphrased while you click. **SAY** = the spoken line; *(do)* = the action.
 
-The whole demo is built around one idea, so open and close on it:
+## What the deliverable requires (and how this script meets it)
+
+| Requirement | How we hit it |
+|---|---|
+| Happy path running **live** | The HIGH run in Beat 1 — a real run, narrated stage by stage. |
+| **Run at least one edge case live** | The **SKIP** in Beat 2 — a real live run. It's fast (~10s) and deterministic, so it can't break on camera. |
+| Narrate what / why / the decisions | Every beat narrates the stage and the judgment being made. |
+| **How you built it** | Beat 4 is a dedicated "how it's built" beat (verdict by code, self-check, structured outputs). |
+| 5 minutes max, one take, no edits | The re-cut below runs ~4.5 min, leaving buffer. |
+
+The one idea to open and close on:
 
 > **The hard part of outreach was never finding signals. It's the *judgment* of
 > which signal is worth using — and whether to send at all. SignalDraft does that
-> judgment, and shows its work.**
+> judgment, live, and shows its work.**
 
 ---
 
-## Before you hit record (a 5-minute checklist)
+## Before you hit record (the 5-minute checklist)
 
-These steps prevent the two things that can break a live demo: the rate limit and
-live-search variance.
+Because this is **one continuous take**, you cannot wait out the rate limit mid-recording.
+The trick: **reopening a saved run is free** — it's just a page load, it does NOT count
+against the 5-runs-per-hour limit. Only *new* runs count. So capture the saved runs
+*before* you record, and the recording itself needs only **2 live runs** (happy + SKIP).
 
-1. **Mind the rate limit.** The app allows **5 runs per IP per hour** (a deliberate
-   public-abuse guardrail). The recording does **one** live single run plus **one**
-   batch of five = six runs. That exceeds five in one hour on one network. Pick one:
-   - **(Recommended)** Do the **batch of five first** (off camera or as step 4),
-     let it populate the dashboard, then **wait for the next hour** before recording
-     the live single run; or
-   - run the **live single run from a different network** than the batch (e.g.
-     phone hotspot for one of them), or
-   - make the batch **four rows** so the total is five.
-2. **Pre-load the saved fallbacks.** Every run is saved to the shared dashboard, so
-   you do not have to trust live search on the day. Before recording, confirm these
-   five runs exist at `https://signaldraft.vercel.app/dashboard` (run any that are
-   missing):
-   - **HIGH** — clean, person-level, recent
-   - **MEDIUM** — company-level / "verify before sending"
-   - **SKIP** — an obscure prospect with no usable signal
-   - **safety-veto** — negative news found but excluded from the hook
-   - **disambiguation** — a common-name prospect with a low-confidence flag
-   If a live run on the day comes back differently than you want (search varies),
-   **reopen the saved run** for that case instead. Same screen, identical card —
-   the viewer can't tell, and you can say honestly "here's one I ran earlier."
-3. **Set the theme** to whichever looks best on your screen (toggle, top-left).
-4. **Have the example CSV ready** — on `/batch`, the **"Use an example"** link loads
-   the five demo prospects, so you never type during the recording.
-5. **Clear or filter old runs.** If the dashboard has older test runs you don't want
-   on camera, either clear them (Upstash console) or use the dashboard **filter** to
-   show only the demo prospects while recording.
+1. **In the hour before recording, make sure these saved runs exist** on
+   `https://signaldraft.vercel.app/dashboard` (run any that are missing — each is one
+   of your 5/hour, so space them out):
+   - **safety-veto** — Hilary Maxson / Oracle, showing "negative news found and excluded".
+     This is the most variance-prone case, so capture it ahead of time and rely on the
+     saved one. *(Look for the amber "negative news avoided" flag and a layoffs signal
+     marked "found but not used".)*
+   - *(Optional extra fallbacks)* a clean **HIGH** and a **MEDIUM**, in case your live
+     happy-path run varies and you'd rather reopen a saved one.
+2. **Leave yourself at least 2 live runs** in the rate-limit window for the recording
+   (the happy path + the SKIP). If unsure, wait for a fresh hour before you hit record.
+3. **The SKIP prospect is your safe live edge case** — `Devon Ashcroft / Larkfield
+   Instruments / Head of Finance`. It's an obscure (synthetic) prospect with no public
+   signal, so it *always* returns SKIP in ~10 seconds. Zero live risk.
+4. **Set the theme** (toggle, top-left) to whatever looks best on screen.
+5. **Tidy the dashboard** — if old test runs are visible, use the dashboard filter to
+   show only your demo prospects, or clear them via the Upstash console.
+6. **Rehearse once end-to-end.** The interviewer is explicitly judging whether the demo
+   runs smoothly. Know the order cold.
 
 ---
 
-## The five demo prospects (one per verdict case)
+## The recording, beat by beat (~4.5 min)
 
-These are the locked demo set — four real, recent US-listed CFO appointments plus
-one deliberately obscure (synthetic) prospect for the SKIP case. **Live search
-varies**, so the verdict you get on the day may differ; the "what to say" column is
-written to hold up either way, and the saved-run fallback covers the rest.
-
-| Case | Prospect | Company | What it demonstrates |
-|---|---|---|---|
-| **HIGH** | Carey Hendrickson | PACS Group | A clean, recent, person-level appointment → a confident drafted email. |
-| **MEDIUM** | Shimon Steinmetz | Arq, Inc. | A solid signal held at MEDIUM → "draft, but verify before sending." |
-| **SKIP** | Devon Ashcroft | Larkfield Instruments | No usable public signal → an honest "skip", no email. |
-| **safety-veto** | Hilary Maxson | Oracle | Negative news (layoffs) found, flagged, and kept *out* of the hook. |
-| **disambiguation** | Sid Thacker | Peloton | A low-confidence identity flag that does **not** block the run. |
-
-> Note on HIGH vs MEDIUM: Hendrickson and Steinmetz are both strong appointment
-> signals and can each land HIGH **or** MEDIUM depending on the day's search (recency
-> of what surfaces). That's fine — you have one of each across the two, and the live
-> single run below uses whichever is cleanly HIGH on the day. The point you're
-> making is the *distinction*, not the specific name.
-
----
-
-## The recording, start to finish
-
-### 0. Open on the problem (~20s, on the landing page)
+### Beat 0 — Open on the problem (~25s)
 
 *(Start on `https://signaldraft.vercel.app`, the single-run form visible.)*
 
 > **SAY:** "This is SignalDraft. The premise: when a rep is under deadline, real
 > personalised research collapses into generic copy-paste. But finding facts about a
 > prospect was never the hard part — the hard part is judging which fact is recent,
-> specific, and *safe* enough to actually build an email on, and whether to send at
-> all. SignalDraft makes that judgment, live, and shows its reasoning. Let me show
-> you one run end to end."
+> specific, and *safe* enough to build an email on, and whether to send at all.
+> SignalDraft makes that judgment live, and shows its reasoning. Here's a run end to
+> end."
 
 ---
 
-### 1. One live run, end to end — the HIGH (~90s)
+### Beat 1 — Happy path, LIVE (~1:50)
 
-*(In the form, enter the prospect that is cleanly HIGH on the day — start with
-**Carey Hendrickson / PACS Group / Chief Financial Officer**. Point at the seller
-panel before you submit.)*
+*(Enter the happy-path prospect — **Carey Hendrickson / PACS Group / Chief Financial
+Officer**. Before submitting, gesture at the seller panel.)*
 
-> **SAY:** "Notice the system already knows who it's selling — this is Zamp's real
-> positioning: AI that automates finance operations, with its actual published value
-> props. That context is what 'relevant' will be judged against. I'll submit."
+> **SAY:** "It already knows who it's selling — Zamp's real positioning: AI that
+> automates finance operations, with its actual published value props. That's what
+> 'relevant' gets judged against. Submitting now."
 
-*(Submit. As the stages stream, narrate the live timeline — this is the core of the
-demo, so slow down here.)*
+*(Submit. As the stages stream, slow down — this is the core of the demo.)*
 
-> **SAY:** "Watch it think. **Resolve** — it pins down who this person is.
-> **Gather** — it fires several targeted web searches in parallel, weighted toward
-> the highest-intent signals like leadership changes and funding. **Extract** — Claude
-> filters the raw results down to the ones that are really about this person and
-> on-topic, dropping the noise. **Score** — and this is the important part: a human
-> didn't decide this verdict and neither did Claude. *Code* scored every signal on
-> recency, specificity, and relevance, multiplied by how strong that signal *type* is,
-> and applied the gates. **Draft**, then a sixth stage, **Self-check**, where the draft
-> reviews its own work against the bar and tightens it."
+> **SAY:** "Watch it think. **Resolve** — it pins down who this person is. **Gather**
+> — several targeted web searches fire in parallel, weighted toward the highest-intent
+> signals like leadership changes and funding. **Extract** — Claude filters the raw
+> hits down to the ones really about this person and on-topic, dropping the noise.
+> **Score** — and this is the key design choice: the verdict isn't decided by a human,
+> and it isn't decided by Claude. *Code* scores every signal on recency, specificity,
+> and relevance, weights it by how strong that signal *type* is, and applies the gates.
+> Then **Draft**, and a sixth stage, **Self-check**, where the draft reviews its own
+> work and tightens it."
 
-*(When the card renders, point at the verdict badge, then the "why this hook" line,
-then the email.)*
+*(When the card renders: point at the verdict badge → the "why this hook" line → the
+email body.)*
 
-> **SAY:** "HIGH. And here's the 'shows its work' part — it tells you *which* signal
-> it built on and why it was chosen, with the source link. The email itself is built
-> on Josh Braun's four-sentence structure: a trigger about them, a genuine question,
-> one proof point from Zamp's value props, and a low-pressure close. No 'I hope this
-> finds you well', no buzzwords, no em-dashes — those are banned in code, not just
-> asked for. Every claim traces to that one signal; it invented nothing."
+> **SAY:** "A drafted verdict, and here's the 'shows its work' part — it names the exact
+> signal it built on and why, with the source link. The email follows Josh Braun's
+> four-sentence structure: a trigger about them, a real question, one proof point from
+> Zamp's value props, a low-pressure close. No 'hope this finds you well', no buzzwords,
+> no em-dashes — those are banned in code. Every claim traces to that one signal. It
+> invented nothing."
 
-*(Scroll down to the ranked signal list.)*
+*(Scroll to the ranked signal list, briefly.)*
 
-> **SAY:** "And it's not hiding the other signals — here's everything it considered,
-> ranked, each with its score. Full transparency."
+> **SAY:** "And it shows everything else it considered, ranked, each with its score.
+> Nothing hidden."
 
----
-
-### 2. The self-check catch (~30s)
-
-> **SAY:** "That sixth stage matters. In testing, a first draft invented a pain
-> point — it claimed the team was 'still carrying manual reconciliation work', which
-> wasn't in any signal. The self-check caught it and removed it before I ever saw it.
-> It's a second, adversarial pass at the model's own work. And it's best-effort by
-> design: if that self-check call ever fails, the original draft is kept — a quality
-> feature can never cost you the result."
-
-*(If you have a saved run where `revised: true`, reopen it and point at the
-"Draft revised after self-review" note as concrete proof. Otherwise narrate it as
-above — it's true either way.)*
+> *(If this run lands MEDIUM instead of HIGH, don't flinch — say:)* "Note it's flagged
+> 'verify before sending' — the signal's a touch older or company-level, so it drafts
+> but tells you to confirm. It knows the difference between confident and tentative."
 
 ---
 
-### 3. The other verdicts — MEDIUM, SKIP, veto, disambiguation (~2 min)
+### Beat 2 — Edge case, LIVE: the honest SKIP (~40s)
 
-The cleanest way to show the range without burning four more live runs is the
-**dashboard** plus **reopening saved runs**. Go to the dashboard.
+*(Back to the form. Enter **Devon Ashcroft / Larkfield Instruments / Head of Finance**.
+Submit. It returns SKIP in ~10s.)*
 
-*(Click "Dashboard".)*
-
-> **SAY:** "Every run is saved to one shared dashboard — anyone with the link sees
-> it, on any device, no login. Here are the summary metrics: how often the hook is
-> person-specific, how many drafts are grounded in a real source, the honest-skip
-> rate, average time to draft. Let me show the other verdicts."
-
-**MEDIUM** *(reopen the Steinmetz / Arq run, or whichever is MEDIUM):*
-
-> **SAY:** "Same machinery, different judgment. This one is MEDIUM — the signal is
-> good but company-level or a little older, so it drafts the email but flags it:
-> 'verify before sending.' It knows the difference between confident and tentative."
-
-**SKIP** *(reopen the Devon Ashcroft / Larkfield run):*
-
-> **SAY:** "This prospect has no real public signal. Instead of inventing something,
-> it does the honest thing: SKIP, no email, with the reason. A tool that knows when
-> *not* to send is the one a rep can actually trust. The skip is a feature."
-
-**safety-veto** *(reopen the Hilary Maxson / Oracle run; point at the flag and the
-ranked signals.)*
-
-> **SAY:** "This is my favourite. Oracle's been in the news for layoffs — and the
-> system *found* that. But look: it refused to build the email on negative news.
-> It's flagged 'found and excluded', kept visible in the ranked list so you can see
-> it was considered, but the email is built on a clean, positive signal instead.
-> That safety judgment is hard-coded, not left to chance."
-
-**disambiguation** *(reopen the Sid Thacker / Peloton run; point at the
-low-confidence flag.)*
-
-> **SAY:** "And here's a common-name case. The system wasn't fully sure it had the
-> right person — so it says so, with a low-confidence flag. But notice it *didn't*
-> stop; the flag is a caution, not a roadblock. It surfaces its own uncertainty
-> instead of hiding it."
+> **SAY:** "Now an edge case, live. This is an obscure prospect with no real public
+> signal. Watch — it gathers, finds nothing usable, and instead of inventing something
+> to say, it does the honest thing: **SKIP**. No email, just the reason. A tool that
+> knows when *not* to send is the one a rep can actually trust. The skip is a feature,
+> not a failure."
 
 ---
 
-### 4. The batch (~45s)
+### Beat 3 — The showpiece edge case: the safety veto (saved run) (~50s)
 
-*(Go to `/batch`. Click "Use an example".)*
+*(Go to **Dashboard**, open the saved **Hilary Maxson / Oracle** run. Point at the flag,
+then the ranked signals.)*
 
-> **SAY:** "It also runs in batch. I'll load an example list of five prospects" —
-> *(point at 'Arq, Inc.')* — "including one with a comma in the company name, which
-> the CSV parser handles correctly. Each row runs through the exact same engine and
-> lands on the dashboard."
+> **SAY:** "One more edge case — my favourite — from a run I captured earlier. Oracle's
+> been in the news for layoffs, and the system *found* that. But look: it refused to
+> build the email on negative news. It's flagged 'found and excluded', kept visible in
+> the ranked list so you see it was considered — but the email is built on a clean,
+> positive signal instead. That safety judgment is hard-coded, not left to the model's
+> mood. This is the difference between a tool that *retrieves* and one that *judges*."
 
-*(If you're inside the rate limit, click **Run 5** and let it stream a couple of
-rows, then cut. If not — see the rate-limit note — just show that it loaded the five
-rows and say:)*
-
-> **SAY:** "Each one streams its current stage, and when they finish they're all on
-> the shared dashboard — the same five verdicts, side by side."
-
----
-
-### 5. Dark mode + close (~20s)
-
-*(Toggle the theme, top-left. Then land back on the dashboard or the landing page.)*
-
-> **SAY:** "Light and dark, remembered across visits."
-
-> **SAY (close):** "So — SignalDraft doesn't just find signals; it makes the
-> judgment a good rep makes. Is this worth using, is it safe, and should I send at
-> all. And it shows that reasoning at every step, so a rep can trust it and a manager
-> can audit it. Verdict by code, drafting by Claude, every claim grounded, the unsafe
-> ones vetoed. That's the whole idea."
+> *(While you're on the dashboard:)* "And everything's here on one shared dashboard —
+> anyone with the link sees it, no login — with summary metrics: how often the hook is
+> person-specific, how many drafts are grounded in a real source, the honest-skip rate."
 
 ---
 
-## The headline numbers (for the close, or for narration)
+### Beat 4 — How it's built (~30s)
 
-- **Six-stage pipeline**, verdict decided by **code** (not the model), so it's
-  deterministic and explainable.
+*(Stay on a result card, or have the repo / README visible if you prefer.)*
+
+> **SAY:** "A few words on how it's built, because the architecture *is* the point.
+> One: the verdict is computed by deterministic code, not the model — so it's
+> explainable and reproducible, and I can tune a weight without touching logic. Two:
+> every piece of JSON from Claude is constrained to a strict schema, so there's no
+> fragile parsing. Three: that self-check stage is best-effort — if it ever fails, the
+> original draft is kept, so a quality feature can never cost you the result. The whole
+> judgment engine is plain TypeScript I can run and test from a terminal — sixty-one
+> tests, no web server needed. The UI is a thin layer over it."
+
+---
+
+### Beat 5 — Close (~15s)
+
+> **SAY:** "So SignalDraft doesn't just find signals — it makes the judgment a good rep
+> makes: is this worth using, is it safe, should I send at all. And it shows that
+> reasoning at every step. Verdict by code, drafting by Claude, every claim grounded,
+> the unsafe ones vetoed. That's the whole idea."
+
+> *(Optional 15s flash if under time — go to `/batch`, click "Use an example", toggle
+> dark mode:)* "It also runs in batch from a CSV, and has a light/dark theme. Thanks for
+> watching."
+
+---
+
+## The five demo prospects (reference)
+
+Four real, recent US-listed CFO appointments plus one deliberately obscure (synthetic)
+prospect for SKIP. **Live search varies**, so a verdict may differ on the day — the
+narration above holds up either way, and saved runs are the safety net.
+
+| Case | Prospect | Company | In the video |
+|---|---|---|---|
+| **HIGH** (happy path) | Carey Hendrickson | PACS Group | Beat 1, **live** |
+| **SKIP** (edge case) | Devon Ashcroft | Larkfield Instruments | Beat 2, **live** |
+| **safety-veto** (edge case) | Hilary Maxson | Oracle | Beat 3, **saved run** |
+| MEDIUM | Shimon Steinmetz | Arq, Inc. | optional fallback |
+| disambiguation | Sid Thacker | Peloton | optional fallback |
+
+> HIGH vs MEDIUM: Hendrickson and Steinmetz are both strong appointment signals and can
+> each land HIGH **or** MEDIUM depending on the day's search. Use whichever is cleanly
+> HIGH for the happy path; the other is a fallback. The point is the *distinction*, not
+> the name.
+
+---
+
+## Headline numbers (for the close or narration)
+
+- **Six-stage pipeline**, verdict decided by **code** (not the model) — deterministic and explainable.
 - **61 offline tests** pass; type-check, lint, and production build all clean.
-- **Live and shared** — `https://signaldraft.vercel.app`, one Upstash-backed
-  dashboard every visitor sees.
-- **Five acceptance cases** all demonstrable: HIGH, MEDIUM, SKIP, safety-veto,
-  disambiguation.
-- Built lean: **Next.js 16 + TypeScript + Tailwind + Claude + Tavily**, no agent
-  framework, the engine fully testable from a terminal.
+- **Live and shared** — `https://signaldraft.vercel.app`, one Upstash-backed dashboard.
+- **Five judgment cases** demonstrable: HIGH, MEDIUM, SKIP, safety-veto, disambiguation.
+- Built lean: **Next.js 16 + TypeScript + Tailwind + Claude + Tavily**, no agent framework.
 
 ---
 
@@ -242,12 +211,13 @@ rows and say:)*
 
 | Problem | Fallback |
 |---|---|
-| A live run returns a different verdict than you wanted | **Reopen the saved run** for that case from the dashboard. Identical screen. |
-| `429 / rate limit reached` | You've used five runs this hour on this IP. Switch network (hotspot), or do the rest of the demo from **saved runs** — no new runs needed. |
-| A live run stalls or errors mid-stream | The UI shows a clear error and a **Retry**. Or just reopen a saved run and keep moving. |
-| The safety-veto doesn't fire live (search didn't surface the negative news) | Reopen the **saved Maxson veto run**. This is the most variance-prone case — rely on the saved one. |
-| Old/irrelevant runs clutter the dashboard | Use the dashboard **filter** (by name or verdict) to show only the demo prospects. |
+| The live happy-path run varies (HIGH ↔ MEDIUM, or a weak hook) | Narrate it honestly (both draft an email), or reopen a saved HIGH run. |
+| `429 / rate limit reached` mid-recording | You've used 5 runs this hour. Stop running new ones — do the rest from **saved runs** (reopening is free). Next time, leave more headroom before recording. |
+| A live run stalls or errors | The UI shows a clear error + **Retry**, or reopen a saved run and keep moving. |
+| The SKIP somehow drafts (it won't — no signal exists) | Reopen the saved Ashcroft SKIP run. |
+| Old/irrelevant runs clutter the dashboard | Use the dashboard **filter** to show only the demo prospects. |
+| You're running long | Cut Beat 5's optional flash and the dashboard-metrics aside; the core (happy + SKIP + veto + build) is the deliverable. |
 
-> The golden rule: **the saved dashboard is your safety net.** Anything you can do
-> live, you can show from a saved run that looks identical. Never let live variance
-> stall the recording.
+> Golden rule: **the saved dashboard is your safety net, and reopening saved runs is
+> free.** Anything you can do live, you can show from a saved run that looks identical.
+> Never let live variance stall the recording.
