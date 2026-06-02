@@ -141,7 +141,7 @@ These are the choices that shaped the build (the full rationale lives in the
   30-day TTL so public personal data isn't kept forever.
 - **Public-demo safety controls** — the deployed app is unauthenticated and every
   run spends real API money, so: a hard spend cap in the Anthropic/Tavily
-  dashboards (the real backstop), a per-IP rate limit (5 runs/hour → HTTP 429), and
+  dashboards (the real backstop), a per-IP rate limit (15 runs/hour → HTTP 429), and
   a form disclosure that runs are saved to a public dashboard.
 
 ---

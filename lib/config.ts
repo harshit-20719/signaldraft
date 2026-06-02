@@ -122,7 +122,7 @@ export const config = {
   // the hard ceiling is the spend cap set in the Anthropic/Tavily dashboards.
   ratelimit: {
     keyPrefix: "signaldraft:rl:", // per-IP counter key
-    maxPerWindow: 5, // allowed runs per IP per window
+    maxPerWindow: 15, // allowed runs per IP per window
     windowSeconds: 3600, // the window length (1 hour)
   },
 } as const;

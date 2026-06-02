@@ -35,12 +35,13 @@ The one idea to open and close on:
 
 Because this is **one continuous take**, you cannot wait out the rate limit mid-recording.
 The trick: **reopening a saved run is free** — it's just a page load, it does NOT count
-against the 5-runs-per-hour limit. Only *new* runs count. So capture the saved runs
+against the 15-runs-per-hour limit. Only *new* runs count. So capture the saved runs
 *before* you record, and the recording itself needs only **2 live runs** (happy + SKIP).
+At 15 runs/hour you have comfortable headroom for rehearsal plus the real take.
 
 1. **In the hour before recording, make sure these saved runs exist** on
    `https://signaldraft.vercel.app/dashboard` (run any that are missing — each is one
-   of your 5/hour, so space them out):
+   of your 15/hour, so space them out):
    - **safety-veto** — Hilary Maxson / Oracle, showing "negative news found and excluded".
      This is the most variance-prone case, so capture it ahead of time and rely on the
      saved one. *(Look for the amber "negative news avoided" flag and a layoffs signal
@@ -212,7 +213,7 @@ narration above holds up either way, and saved runs are the safety net.
 | Problem | Fallback |
 |---|---|
 | The live happy-path run varies (HIGH ↔ MEDIUM, or a weak hook) | Narrate it honestly (both draft an email), or reopen a saved HIGH run. |
-| `429 / rate limit reached` mid-recording | You've used 5 runs this hour. Stop running new ones — do the rest from **saved runs** (reopening is free). Next time, leave more headroom before recording. |
+| `429 / rate limit reached` mid-recording | You've used 15 runs this hour. Stop running new ones — do the rest from **saved runs** (reopening is free). Next time, leave more headroom before recording. |
 | A live run stalls or errors | The UI shows a clear error + **Retry**, or reopen a saved run and keep moving. |
 | The SKIP somehow drafts (it won't — no signal exists) | Reopen the saved Ashcroft SKIP run. |
 | Old/irrelevant runs clutter the dashboard | Use the dashboard **filter** to show only the demo prospects. |
